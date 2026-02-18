@@ -2,14 +2,17 @@
 session_start();
 $config = require __DIR__ . '/funcoes/config.php';
 $error = '';
+$success = $_GET['success'] ?? '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
     $senha = $_POST['password'] ?? '';
+    
     if (!$email || !$senha) {
         $error = 'Preencha todos os campos obrigatórios.';
     } else {
         $payload = json_encode(['email' => $email, 'senha' => $senha]);
-    $ch = curl_init($config['api_base'] . '/api/login');
+        $ch = curl_init($config['api_base'] . '/api/login');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
@@ -17,10 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $response = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        
         if (is_string($response) && strncmp($response, "\xEF\xBB\xBF", 3) === 0) {
             $response = substr($response, 3);
         }
+        
         $data = json_decode($response, true);
+        
         if ($httpcode === 200 && isset($data['token'], $data['usuario'], $data['empresa'], $data['licenca'])) {
             $_SESSION['user_id'] = $data['usuario']['id_usuario'];
             $_SESSION['authToken'] = $data['token'];
@@ -60,17 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'ongs_terceiro_setor' => 'home-ongs_terceiro_setor',
                 'seguranca' => 'home-seguranca',
                 'seguranca_patrimonial' => 'home-seguranca_patrimonial',
+                'marcenaria' => 'home-marcenaria',
                 'outros' => 'home'
             ];
             
-            // View padrão para admin ou segmento não mapeado
             $defaultView = 'home-admin';
-            
-            // Determinar a view baseada no segmento
             $targetView = $viewMap[$segmento] ?? $defaultView;
-            
-            // Passar licenca como parâmetro (serializado em base64 para evitar problemas de URL)
             $licencaParam = urlencode(base64_encode(json_encode($data['licenca'])));
+            
             header('Location: index.php?view=' . $targetView . '&licenca=' . $licencaParam);
             exit;
         } elseif ($httpcode === 403 && isset($data['message'])) {
@@ -89,181 +92,613 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="pt-BR">
 <head>
     <?php $pageTitle = 'Login - NexusFlow'; include __DIR__ . '/components/app-head.php'; ?>
-
+    
+    <!-- Font Awesome para ícones adicionais -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        .divider {
-            position: relative;
-            text-align: center;
-            margin: 1.5rem 0;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        .divider::before {
+
+        :root {
+            --nexus-primary: #2563eb;
+            --nexus-secondary: #1e293b;
+            --nexus-accent: #0ea5e9;
+            --nexus-success: #10b981;
+            --nexus-warning: #f59e0b;
+            --nexus-dark: #0f172a;
+            --nexus-light: #f8fafc;
+            --nexus-gray: #64748b;
+            --gradient-1: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+            --gradient-2: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Container Principal */
+        .nexus-login-container {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            background: white;
+            overflow: hidden;
+        }
+
+        /* Lado Esquerdo - Formulário */
+        .login-form-side {
+            flex: 0 0 40%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            background: white;
+            position: relative;
+            overflow-y: auto; /* Permite scroll apenas se necessário */
+            height: 100vh;
+        }
+
+        .login-form-side::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .login-form-side::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .login-form-side::-webkit-scrollbar-thumb {
+            background: var(--nexus-gray);
+            border-radius: 3px;
+        }
+
+        .login-form-side::before {
             content: '';
             position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: var(--border-light);
-        }
-        
-        .divider span {
-            background: var(--white);
-            padding: 0 1rem;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-        
-        .btn-login {
-            background: var(--primary-blue);
-            border: none;
-            border-radius: 8px;
-            padding: 0.75rem;
-            font-weight: 600;
-            transition: all var(--transition-fast);
-        }
-        
-        .btn-login:hover {
-            background: #2980b9;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
-        }
-        
-        .form-floating .form-control {
-            border-radius: 8px;
-            border: 1px solid var(--border-light);
-        }
-        
-        .form-floating .form-control:focus {
-            border-color: var(--primary-blue);
-            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-        }
-
-        .auth-container {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .auth-card {
-            background: white;
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            top: -50%;
+            right: -50%;
             width: 100%;
-            max-width: 420px;
+            height: 100%;
+            background: radial-gradient(circle, rgba(37,99,235,0.03) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
         }
 
-        .auth-logo {
-            width: 60px;
-            height: 60px;
-            background: var(--primary-blue);
+        .login-form-wrapper {
+            max-width: 380px;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+            padding: 1rem 0;
+        }
+
+        /* Logo e Título */
+        .nexus-brand {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .nexus-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .nexus-logo-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-1);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1rem;
             color: white;
+            font-size: 1.75rem;
+            box-shadow: 0 10px 20px rgba(37,99,235,0.2);
+        }
+
+        .nexus-logo-text h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--nexus-dark);
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .nexus-logo-text p {
+            color: var(--nexus-gray);
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .nexus-tagline {
             font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--nexus-dark);
+            margin: 0.75rem 0 0.25rem;
+            line-height: 1.2;
         }
 
-        .auth-header {
-            text-align: center;
-            margin-bottom: 2rem;
+        .nexus-tagline span {
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        .auth-footer {
-            text-align: center;
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-light);
+        .nexus-description {
+            color: var(--nexus-gray);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
         }
+
+        /* Formulário - AGORA VISÍVEL */
+        .nexus-form {
+            margin-top: 0.5rem;
+            width: 100%;
+        }
+
+        .form-floating {
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+
+        .form-floating .form-control {
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem 0.75rem;
+            height: 60px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .form-floating .form-control:focus {
+            border-color: var(--nexus-primary);
+            box-shadow: 0 0 0 4px rgba(37,99,235,0.1);
+            outline: none;
+        }
+
+        .form-floating label {
+            padding: 1rem 0.75rem;
+            color: var(--nexus-gray);
+            font-size: 1rem;
+        }
+
+        .form-check {
+            display: flex;
+            align-items: center;
+        }
+
+        .form-check-input {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--nexus-primary);
+            border-color: var(--nexus-primary);
+        }
+
+        .form-check-label {
+            color: var(--nexus-gray);
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        /* Botão */
+        .btn-nexus-primary {
+            background: var(--gradient-1);
+            border: none;
+            border-radius: 10px;
+            padding: 1rem;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            margin: 1.5rem 0 0.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(37,99,235,0.2);
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .btn-nexus-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(37,99,235,0.3);
+        }
+
+        /* Links */
+        .nexus-links {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        .nexus-links a {
+            color: var(--nexus-gray);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .nexus-links a:hover {
+            color: var(--nexus-primary);
+            text-decoration: underline;
+        }
+
+        .nexus-signup {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1.5px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .nexus-signup a {
+            color: var(--nexus-primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .nexus-signup a:hover {
+            text-decoration: underline;
+        }
+
+        /* Lado Direito - Imagem */
+        .login-image-side {
+            flex: 0 0 60%;
+            position: relative;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .image-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
+            z-index: 1;
+        }
+
+        /* Elementos flutuantes sobre a imagem */
+        .floating-badge {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 40px;
+            color: white;
+            font-size: 1rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .floating-badge i {
+            color: #fbbf24;
+        }
+
+        .segment-cards {
+            position: absolute;
+            bottom: 2rem;
+            left: 2rem;
+            display: flex;
+            gap: 1rem;
+            z-index: 3;
+            flex-wrap: wrap;
+        }
+
+        .segment-card {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 40px;
+            color: white;
+            font-size: 1rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .segment-card i {
+            color: var(--nexus-accent);
+        }
+
+        .segment-card.highlight {
+            background: var(--gradient-1);
+            border: none;
+        }
+
+        .testimonial-card {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            border-radius: 16px;
+            color: white;
+            max-width: 280px;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 3;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.3);
+        }
+
+        .testimonial-card i {
+            color: var(--nexus-accent);
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+        }
+
+        .testimonial-card p {
+            font-style: italic;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .testimonial-author img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .testimonial-author div {
+            font-size: 0.85rem;
+        }
+
+        .testimonial-author strong {
+            display: block;
+            font-size: 1rem;
+            margin-bottom: 0.2rem;
+        }
+
+        /* Alertas */
+        .nexus-alert {
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: none;
+            font-size: 0.95rem;
+        }
+
+        .nexus-alert-danger {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #dc2626;
+        }
+
+        .nexus-alert-success {
+            background: #dcfce7;
+            color: #166534;
+            border-left: 4px solid #16a34a;
+        }
+
+        /* Responsividade */
+        @media (max-width: 1024px) {
+            .nexus-login-container {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            
+            .login-form-side, .login-image-side {
+                flex: 0 0 auto;
+                height: auto;
+                min-height: 100vh;
+            }
+            
+            body {
+                overflow: auto;
+            }
+        }
+
+        /* Animações */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-form {
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
+        .delay-1 { animation-delay: 0.2s; opacity: 0; animation-fill-mode: forwards; }
+        .delay-2 { animation-delay: 0.4s; opacity: 0; animation-fill-mode: forwards; }
+        .delay-3 { animation-delay: 0.6s; opacity: 0; animation-fill-mode: forwards; }
     </style>
 </head>
 <body>
-    <div class="auth-container d-flex align-items-center justify-content-center p-4">
-        <div class="auth-card">
-            <div class="auth-header">
-                <div class="auth-logo">
-                    <i class="bi bi-diagram-3"></i>
-                </div>
-                <h4 class="mb-0">NexusFlow</h4>
-                <p class="mb-0 opacity-75">Sistema de Gestão Multi-Empresas</p>
-            </div>
-            
-            <div class="auth-body">
-                <form method="post" autocomplete="off">
-                    <?php if ($error): ?>
-                        <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
-                    <?php endif; ?>
-                    <div class="form-floating mb-3">
-                        <input type="email" class="form-control" id="email" name="email" placeholder="seu@email.com" required autocomplete="username">
-                        <label for="email">E-mail</label>
+    <div class="nexus-login-container">
+        <!-- Lado Esquerdo - Formulário (AGORA COMPLETO) -->
+        <div class="login-form-side">
+            <div class="login-form-wrapper">
+                <!-- Logo e branding -->
+                <div class="nexus-brand">
+                    <div class="nexus-logo">
+                        <div class="nexus-logo-icon">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <div class="nexus-logo-text">
+                            <h1>NexusFlow</h1>
+                            <p>Sistema de Gestão Multi-Empresas</p>
+                        </div>
                     </div>
-                    <div class="form-floating mb-3">
-                        <input type="password" class="form-control" id="password" name="password" placeholder="Senha" required autocomplete="current-password">
-                        <label for="password">Senha</label>
+                    <p><p></p></p>
+                    <div class="nexus-tagline">
+                       <small> <small>Centralize sua <span>operação</span><br>
+                        em um único ambiente </small></small>
                     </div>
                     
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="nexus-description">
+                        Vendas, estoque, financeiro e indicadores integrados para empresas com múltiplas unidades.
+                    </div>
+                </div>
+                
+                <!-- Mensagens de Alerta -->
+                <?php if ($error): ?>
+                    <div class="nexus-alert nexus-alert-danger animate-form delay-1">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <?php echo htmlspecialchars($error); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if ($success): ?>
+                    <div class="nexus-alert nexus-alert-success animate-form delay-1">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <?php echo htmlspecialchars($success); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- FORMULÁRIO DE LOGIN - COMPLETO E VISÍVEL -->
+                <form method="post" class="nexus-form">
+                    <!-- Campo de E-mail -->
+                    <div class="form-floating animate-form delay-1">
+                        <input type="email" class="form-control" id="email" name="email" placeholder="seu@email.com" required autocomplete="username" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>">
+                        <label for="email">
+                            <i class="fas fa-envelope me-2"></i>E-mail corporativo
+                        </label>
+                    </div>
+                    
+                    <!-- Campo de Senha -->
+                    <div class="form-floating animate-form delay-2">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Senha" required autocomplete="current-password">
+                        <label for="password">
+                            <i class="fas fa-lock me-2"></i>Senha
+                        </label>
+                    </div>
+                    
+                    <!-- Links e opções -->
+                    <div class="nexus-links animate-form delay-2">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="remember">
+                            <input class="form-check-input" type="checkbox" id="remember" name="remember">
                             <label class="form-check-label" for="remember">
-                                Lembrar-me
+                                Manter conectado
                             </label>
                         </div>
-                        <a href="esqueci_senha.php" class="text-decoration-none" onclick="showForgotPassword()">Esqueci minha senha</a>
+                        <a href="esqueci_senha.php">
+                            <i class="fas fa-key me-1"></i>
+                            Esqueci minha senha
+                        </a>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary btn-login w-100 mb-3">
-                        <i class="bi bi-box-arrow-in-right me-2"></i>
-                        Entrar
+                    <!-- Botão de Login -->
+                    <button type="submit" class="btn-nexus-primary animate-form delay-3">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Acessar NexusFlow
                     </button>
                 </form>
                 
-                <div class="divider">
-                    <span>ou</span>
+                <!-- Link para cadastro -->
+                <div class="nexus-signup animate-form delay-3">
+                    <p class="mb-0">
+                        Não tem uma conta?
+                        <a href="cadastro.php">
+                            Cadastre-se gratuitamente <i class="fas fa-arrow-right ms-1"></i>
+                        </a>
+                    </p>
                 </div>
-                
-                <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-outline-secondary" onclick="loginWithGoogle()">
-                        <i class="bi bi-google me-2"></i>
-                        Entrar com Google
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="loginWithMicrosoft()">
-                        <i class="bi bi-microsoft me-2"></i>
-                        Entrar com Microsoft
-                    </button>
+            </div>
+        </div>
+        
+        <!-- Lado Direito - Imagem -->
+        <div class="login-image-side">
+            <div class="image-container">
+                <!-- Imagem multi-segmentos com pessoas e ambiente de trabalho -->
+                <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&h=900&fit=crop&auto=format" alt="Equipe multi-segmentos NexusFlow">
+                <div class="image-overlay"></div>
+            </div>
+            
+            <!-- Badge de confiança -->
+            <div class="floating-badge">
+                <i class="fas fa-star"></i>
+                <span><strong>+2.500</strong> empresas confiam</span>
+            </div>
+            
+            <!-- Cards dos segmentos atuais -->
+            <div class="segment-cards">
+                <div class="segment-card highlight">
+                    <i class="fas fa-store"></i>
+                    <span>Varejo</span>
+                </div>
+                <div class="segment-card highlight">
+                    <i class="fas fa-industry"></i>
+                    <span>Marcenaria</span>
+                </div>
+                <div class="segment-card">
+                    <i class="fas fa-rocket"></i>
+                    <span>Expansão contínua</span>
                 </div>
             </div>
             
-            <div class="auth-footer">
-                <p class="mb-0">
-                    Não tem uma conta? 
-                    <a href="cadastro.php" class="text-decoration-none fw-semibold">Cadastre-se gratuitamente</a>
-                </p>
-            </div>
+            <!-- Depoimento -->
+            
         </div>
     </div>
     
     <script>
-        function loginWithGoogle() {
-            // Implementar integração com Google OAuth
-            alert('Integração com Google em desenvolvimento');
-        }
-
-        function loginWithMicrosoft() {
-            // Implementar integração com Microsoft OAuth
-            alert('Integração com Microsoft em desenvolvimento');
-        }
-
         function showForgotPassword() {
-            // Implementar modal ou redirecionamento para recuperação de senha
-            alert('Redirecionando para recuperação de senha');
+            window.location.href = 'esqueci_senha.php';
+        }
+
+        // Prevenir scroll acidental apenas em desktop
+        if (window.innerWidth > 1024) {
+            document.body.addEventListener('wheel', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+
+            document.body.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+            }, { passive: false });
         }
     </script>
+    
     <?php include __DIR__ . '/components/app-foot.php'; ?>
 </body>
 </html>
-
-
-
