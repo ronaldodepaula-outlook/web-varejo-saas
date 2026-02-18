@@ -33,7 +33,7 @@ $env = static function (string $key, $default = null) {
 return [
     // URLs base do sistema
     'url_base' => $env('APP_URL_BASE', 'https://rdpsolutions.online/saas-multiempresas-new/public/app/'),
-    'api_base' => $env('API_BASE_URL', 'https://rdpsolutions.online/saas-multiempresas/public'),
+    'api_base' => $env('API_BASE_URL', 'https://rdpsolutions.online/saas-multiempresas-new/public'),
 
     // Nome do sistema
     'nome_sistema' => $env('APP_NAME', 'NexusFlow'),

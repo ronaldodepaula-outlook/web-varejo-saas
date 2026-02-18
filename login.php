@@ -17,6 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $response = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        if (is_string($response) && strncmp($response, "\xEF\xBB\xBF", 3) === 0) {
+            $response = substr($response, 3);
+        }
         $data = json_decode($response, true);
         if ($httpcode === 200 && isset($data['token'], $data['usuario'], $data['empresa'], $data['licenca'])) {
             $_SESSION['user_id'] = $data['usuario']['id_usuario'];
