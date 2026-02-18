@@ -32,7 +32,7 @@ $env = static function (string $key, $default = null) {
 
 return [
     // URLs base do sistema
-    'url_base' => $env('APP_URL_BASE', 'https://rdpsolutions.online/saas-multiempresas/public/app/'),
+    'url_base' => $env('APP_URL_BASE', 'https://rdpsolutions.online/saas-multiempresas-new/public/app/'),
     'api_base' => $env('API_BASE_URL', 'https://rdpsolutions.online/saas-multiempresas/public'),
 
     // Nome do sistema
