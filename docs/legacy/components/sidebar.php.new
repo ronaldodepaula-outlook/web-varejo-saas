@@ -1,0 +1,222 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['authToken'], $_SESSION['usuario'], $_SESSION['empresa'], $_SESSION['licenca'])) {
+    header('Location: login.php');
+    exit;
+}
+
+// Verificar e converter o tipo de dados das variáveis de sessão
+$usuario = is_array($_SESSION['usuario']) ? $_SESSION['usuario'] : ['nome' => $_SESSION['usuario']];
+$empresa = $_SESSION['empresa'];
+$id_empresa = $_SESSION['empresa_id'];
+$licenca = $_SESSION['licenca'];
+$token = $_SESSION['authToken'];
+$segmento = $_SESSION['segmento'] ?? '';
+
+$id_usuario = $_SESSION['user_id'];
+
+// Extrair nome do usuário de forma segura
+$nomeUsuario = '';
+if (is_array($usuario)) {
+    $nomeUsuario = $usuario['nome'] ?? $usuario['name'] ?? 'Usuário';
+} else {
+    $nomeUsuario = (string)$usuario;
+}
+
+// Primeira letra para o avatar
+$inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
+
+?>
+<style>
+    .segment-info {
+        background: rgba(0,0,0,0.1);
+        border-radius: 8px;
+        margin: 0 15px 15px;
+    }
+    .segment-info .nav-header {
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .segment-info small {
+        font-size: 0.75rem;
+        opacity: 0.8;
+    }
+    .nav-section {
+        margin-bottom: 1.5rem;
+    }
+</style>
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="bi bi-diagram-3"></i>
+            </div>
+            <div class="logo-text">NexusFlow - <?php echo ucfirst($segmento);?></div>
+        </div>
+    </div>
+    
+    <div class="sidebar-nav">
+        <?php
+        // Scan view directory for .php files and build menu dynamically
+        $viewDir = __DIR__ . '/../view';
+        $files = [];
+        if (is_dir($viewDir)) {
+            foreach (scandir($viewDir) as $f) {
+                if (in_array($f, ['.', '..', 'config.js'])) continue;
+                $path = $viewDir . '/' . $f;
+                if (is_file($path) && strtolower(pathinfo($f, PATHINFO_EXTENSION)) === 'php') {
+                    $files[] = $f;
+                }
+            }
+        }
+
+        // Helper to prettify label
+        function pretty_label($s) {
+            $s = str_replace(['home-', '_', '-'], ['', ' ', ' '], $s);
+            $s = preg_replace('/\s+/', ' ', trim($s));
+            return ucfirst($s);
+        }
+
+        // Icon maps for each item
+        $itemIconMap = [
+            // Sistema
+            'home' => 'bi-house',
+            'admin' => 'bi-gear',
+            'admins' => 'bi-people-fill',
+            'admin-empresas' => 'bi-building',
+            'admin-filiais' => 'bi-diagram-3',
+            
+            // Marcenaria
+            'admin-dashboard_marcenaria' => 'bi-graph-up',
+            'admin-marcenarias' => 'bi-tools',
+            'admin-filiais_empresa' => 'bi-diagram-3',
+            'admin-orcamentos' => 'bi-calculator',
+            'admin-ordens_producao' => 'bi-clipboard-check',
+            'admin-estoque' => 'bi-box-seam',
+            'admin-inventarios' => 'bi-list-check',
+            'admin-mercadorias' => 'bi-boxes',
+            'admin-produtos' => 'bi-box',
+            
+            // Varejo
+            'home-DashboardPDV' => 'bi-speedometer2',
+            'admin-vensasAssistidas' => 'bi-cart-check',
+            'admin-contas_pagar' => 'bi-credit-card',
+            'admin-contas_receber' => 'bi-cash-coin',
+            'admin-nfs' => 'bi-receipt',
+            'admin-clientes' => 'bi-people',
+            'pdv-venda' => 'bi-cart',
+            
+            // Default
+            'debug-session' => 'bi-bug',
+            'empresas' => 'bi-shop-window',
+            'gestao_usuarios' => 'bi-people'
+        ];
+
+        // Define menu structure based on segment
+        $menuStructure = [];
+        
+        // Default menu items that should always appear
+        $defaultItems = ['home', 'debug-session'];
+        
+        switch(strtolower($segmento)) {
+            case 'marcenaria':
+                $menuStructure[] = [
+                    'title' => 'SEGMENTO MARCENARIA',
+                    'icon' => 'bi-tools',
+                    'description' => 'Gestão de produção, orçamentos e controle de materiais',
+                    'items' => [
+                        'admin-dashboard_marcenaria',
+                        'admin-marcenarias',
+                        'admin-filiais_empresa',
+                        'admin-orcamentos',
+                        'admin-ordens_producao',
+                        'admin-estoque',
+                        'admin-inventarios',
+                        'admin-mercadorias',
+                        'admin-produtos'
+                    ]
+                ];
+                break;
+                
+            case 'varejo':
+                $menuStructure[] = [
+                    'title' => 'SEGMENTO VAREJO',
+                    'icon' => 'bi-shop',
+                    'description' => 'PDV, Loja e Controle Comercial',
+                    'items' => [
+                        'home-DashboardPDV',
+                        'admin-vensasAssistidas',
+                        'admin-contas_pagar',
+                        'admin-contas_receber',
+                        'admin-filiais_empresa',
+                        'admin-nfs',
+                        'admin-clientes',
+                        'pdv-venda'
+                    ]
+                ];
+                break;
+                
+            case 'admin':
+                $menuStructure[] = [
+                    'title' => 'ADMINISTRAÇÃO GERAL',
+                    'icon' => 'bi-gear-fill',
+                    'description' => 'Controle e configuração do sistema',
+                    'items' => [
+                        'home',
+                        'admin',
+                        'admins',
+                        'admin-empresas',
+                        'admin-filiais',
+                        'gestao_usuarios'
+                    ]
+                ];
+                break;
+                
+            default:
+                $menuStructure[] = [
+                    'title' => 'Sistema',
+                    'icon' => 'bi-house-gear',
+                    'description' => 'Acesso limitado ao sistema',
+                    'items' => $defaultItems
+                ];
+        }
+        
+        // Render menu sections
+        foreach ($menuStructure as $section) {
+            echo "<div class=\"nav-section\">";
+            
+            // Header with title and description
+            echo "<div class=\"segment-info mb-3\">";
+            echo "<div class=\"nav-header\">";
+            echo "<i class=\"bi {$section['icon']} nav-header-icon\"></i>";
+            echo "<span class=\"nav-header-text\">{$section['title']}</span>";
+            echo "</div>";
+            if (!empty($section['description'])) {
+                echo "<small class=\"text-muted d-block px-3 py-1\">{$section['description']}</small>";
+            }
+            echo "</div>";
+            
+            // Menu items
+            foreach ($section['items'] as $item) {
+                if (!in_array($item . '.php', $files)) continue;
+                
+                $label = pretty_label($item);
+                $href = '?view=' . $item;
+                $iconClass = $itemIconMap[$item] ?? 'bi-circle';
+                
+                echo "<div class=\"nav-item\">";
+                echo "<a href=\"$href\" class=\"nav-link\">";
+                echo "<i class=\"bi $iconClass nav-icon\"></i>";
+                echo "<span class=\"nav-text\">$label</span>";
+                echo "</a>";
+                echo "</div>";
+            }
+            
+            echo "</div>";
+        }
+        ?>
+    </div>
+</nav>

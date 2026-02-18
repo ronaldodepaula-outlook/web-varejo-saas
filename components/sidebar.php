@@ -1,0 +1,133 @@
+<?php
+// Sidebar padrao para toda a navegacao
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+$segmento = $segmento ?? ($_SESSION['segmento'] ?? 'varejo');
+$currentView = $_GET['view'] ?? 'home';
+
+function normalize_view_name($value) {
+    $value = is_string($value) ? $value : '';
+    $value = str_replace('-', '_', $value);
+    return strtolower($value);
+}
+
+function is_active_view($view, $currentView) {
+    return normalize_view_name($view) === normalize_view_name($currentView);
+}
+
+$iconMap = [
+    'home' => 'bi-house',
+    'home_admin' => 'bi-grid',
+    'home_admins' => 'bi-grid-1x2',
+    'home_dashboardpdv' => 'bi-speedometer2',
+    'admin_dashboard_marcenaria' => 'bi-grid',
+    'admin_marcenarias' => 'bi-house-gear',
+    'admin_minhas_filiais' => 'bi-building-check',
+    'admin_orcamentos' => 'bi-journal-text',
+    'admin_ordens_producao' => 'bi-diagram-3',
+    'admin_estoque' => 'bi-box',
+    'admin_inventarios' => 'bi-clipboard-data',
+    'admin_mercadorias' => 'bi-boxes',
+    'admin_produtos' => 'bi-bag',
+    'admin_vendasassistidas' => 'bi-cart-check',
+    'admin_nfs' => 'bi-receipt',
+    'admin_empresas' => 'bi-building',
+    'admin_filiais' => 'bi-diagram-3',
+    'admin_filiais_empresa' => 'bi-building-fill',
+    'adm_clientes' => 'bi-people',
+    'admin_contas_pagar' => 'bi-wallet2',
+    'admin_contas_receber' => 'bi-wallet',
+    'gestao_usuarios' => 'bi-people',
+];
+
+$menus = [
+    'marcenaria' => [
+        'header' => 'Segmento Marcenaria',
+        'description' => 'Gestao de producao, orcamentos e materiais.',
+        'items' => [
+            ['view' => 'admin-dashboard_marcenaria', 'label' => 'Dashboard'],
+            ['view' => 'admin-marcenarias', 'label' => 'Marcenarias'],
+            ['view' => 'admin-minhas-filiais', 'label' => 'Minhas Filiais'],
+            ['view' => 'adm-clientes', 'label' => 'Clientes'],
+            ['view' => 'admin-orcamentos', 'label' => 'Orcamentos'],
+            ['view' => 'admin-ordens_producao', 'label' => 'Ordens de Producao'],
+            ['view' => 'admin-estoque', 'label' => 'Estoque'],
+            ['view' => 'admin-inventarios', 'label' => 'Inventarios'],
+            ['view' => 'admin-mercadorias', 'label' => 'Mercadorias'],
+            ['view' => 'admin-produtos', 'label' => 'Produtos'],
+        ],
+    ],
+    'varejo' => [
+        'header' => 'Segmento Varejo',
+        'description' => 'Operacao de vendas, PDV e financeiro.',
+        'items' => [
+            ['view' => 'home-DashboardPDV', 'label' => 'Dashboard PDV'],
+            ['view' => 'admin-vendasAssistidas', 'label' => 'Vendas Assistidas'],
+            ['view' => 'adm-clientes', 'label' => 'Clientes'],
+            ['view' => 'admin-contas_pagar', 'label' => 'Contas a Pagar'],
+            ['view' => 'admin-contas_receber', 'label' => 'Contas a Receber'],
+            ['view' => 'admin-minhas-filiais', 'label' => 'Minhas Filiais'],
+            ['view' => 'home', 'label' => 'Home'],
+            ['view' => 'admin-empresas', 'label' => 'Empresas'],
+            ['view' => 'admin-estoque', 'label' => 'Estoque'],
+            ['view' => 'admin-inventarios', 'label' => 'Inventarios'],
+            ['view' => 'admin-mercadorias', 'label' => 'Mercadorias'],
+            ['view' => 'admin-nfs', 'label' => 'Notas Fiscais'],
+            ['view' => 'admin-produtos', 'label' => 'Produtos'],
+        ],
+    ],
+    'admin' => [
+        'header' => 'Administracao do Sistema',
+        'description' => 'Configuracoes e controle global.',
+        'items' => [
+            ['view' => 'home-admins', 'label' => 'Dashboard Geral'],
+            ['view' => 'admin-empresas', 'label' => 'Empresas'],
+            ['view' => 'admin-filiais', 'label' => 'Filiais'],
+            ['view' => 'gestao_usuarios', 'label' => 'Usuarios'],
+            ['view' => 'home-admin', 'label' => 'Painel Admin Empresa'],
+        ],
+    ],
+];
+
+$menu = $menus[$segmento] ?? $menus['varejo'];
+
+function render_menu_items($items, $iconMap, $currentView) {
+    foreach ($items as $item) {
+        $view = $item['view'];
+        $label = $item['label'] ?? $view;
+        $href = '?view=' . htmlspecialchars($view);
+        $iconKey = normalize_view_name($view);
+        $icon = $iconMap[$iconKey] ?? 'bi-circle';
+        $active = is_active_view($view, $currentView) ? ' active' : '';
+        $aria = is_active_view($view, $currentView) ? ' aria-current="page"' : '';
+
+        echo '<div class="nav-item">';
+        echo '<a href="' . $href . '" class="nav-link' . $active . '"' . $aria . '>';
+        echo '<i class="bi ' . htmlspecialchars($icon) . ' nav-icon"></i>';
+        echo '<span class="nav-text">' . htmlspecialchars($label) . '</span>';
+        echo '</a>';
+        echo '</div>';
+    }
+}
+?>
+
+<nav class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <div class="logo-icon">N</div>
+            <div class="logo-text">NexusFlow</div>
+        </div>
+    </div>
+
+    <div class="sidebar-nav">
+        <div class="nav-section">
+            <div class="nav-header"><?php echo htmlspecialchars($menu['header']); ?></div>
+            <div class="px-3 pb-2" style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">
+                <?php echo htmlspecialchars($menu['description']); ?>
+            </div>
+            <?php render_menu_items($menu['items'], $iconMap, $currentView); ?>
+        </div>
+    </div>
+</nav>

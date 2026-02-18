@@ -1,0 +1,27 @@
+/* NexusFlow - App Root Styles */
+
+:root {
+    --app-bg: var(--light-gray);
+    --app-surface: #ffffff;
+    --app-radius: 12px;
+    --app-gap: 1rem;
+}
+
+body {
+    background: var(--app-bg);
+}
+
+.app-root {
+    min-height: 100vh;
+    background: var(--app-bg);
+}
+
+.page-shell {
+    min-height: 100vh;
+}
+
+.surface {
+    background: var(--app-surface);
+    border-radius: var(--app-radius);
+    box-shadow: var(--shadow-sm);
+}

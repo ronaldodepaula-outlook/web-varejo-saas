@@ -1,0 +1,238 @@
+<?php
+session_start();
+if (!isset($_SESSION['authToken'])) {
+    header('Location: login.php');
+    exit;
+}
+
+// Verificar e converter o tipo de dados das variáveis de sessão
+$usuario = is_array($_SESSION['usuario']) ? $_SESSION['usuario'] : ['nome' => $_SESSION['usuario']];
+$empresa = $_SESSION['empresa'];
+$id_empresa = $_SESSION['empresa_id'];
+$licenca = $_SESSION['licenca'];
+$token = $_SESSION['authToken'];
+$segmento = $_SESSION['segmento'] ?? '';
+
+// Extrair nome do usuário de forma segura
+$nomeUsuario = '';
+if (is_array($usuario)) {
+    $nomeUsuario = $usuario['nome'] ?? $usuario['name'] ?? 'Usuário';
+} else {
+    $nomeUsuario = (string)$usuario;
+}
+
+// Extrair ID do usuário da sessão
+$id_usuario = $_SESSION['user_id'] ?? ($usuario['id'] ?? 1);
+
+// Primeira letra para o avatar
+$inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orçamentos Marcenaria - SAS Multi</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <!-- Bootstrap Bundle com Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Configuração da API e variáveis globais
+        const BASE_URL = 'https://rdpsolutions.online/saas-multiempresas/public';
+        const API_CONFIG = {
+            getHeaders() {
+                return {
+                    'Authorization': `Bearer <?php echo $token; ?>`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-ID-EMPRESA': '<?php echo $id_empresa; ?>'
+                };
+            },
+            getUrl(endpoint) {
+                return `${BASE_URL}/api/v1/marcenaria/${endpoint}`;
+            }
+        };
+        
+        let orcamentos = [];
+        let modalOrcamento;
+        let modalVisualizar;
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar modais Bootstrap
+            const modalOrcamentoEl = document.getElementById('modalOrcamento');
+            const modalVisualizarEl = document.getElementById('modalVisualizarOrcamento');
+            
+            if (modalOrcamentoEl) {
+                modalOrcamento = new bootstrap.Modal(modalOrcamentoEl);
+            }
+            
+            if (modalVisualizarEl) {
+                modalVisualizar = new bootstrap.Modal(modalVisualizarEl);
+            }
+            
+            carregarOrcamentos();
+        });
+
+        async function carregarOrcamentos() {
+            mostrarLoading(true);
+            
+            try {
+                const response = await fetch(API_CONFIG.getUrl('orcamentos'), {
+                    method: 'GET',
+                    headers: API_CONFIG.getHeaders()
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                orcamentos = data.data || [];
+                
+                exibirOrcamentos(orcamentos);
+                
+            } catch (error) {
+                console.error('Erro ao carregar orçamentos:', error);
+                mostrarNotificacao('Erro ao carregar orçamentos: ' + error.message, 'error');
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        function exibirOrcamentos(listaOrcamentos) {
+            const tbody = document.getElementById('tabelaOrcamentos');
+            
+            if (!Array.isArray(listaOrcamentos) || listaOrcamentos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Nenhum orçamento encontrado</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = listaOrcamentos.map(orcamento => `
+                <tr>
+                    <td>#${orcamento.id_orcamento}</td>
+                    <td>${orcamento.cliente?.nome_cliente || 'N/A'}</td>
+                    <td>${orcamento.tipo_movel}</td>
+                    <td>R$ ${parseFloat(orcamento.valor_orcado).toFixed(2)}</td>
+                    <td><span class="badge ${getStatusBadgeClass(orcamento.status)}">${formatarStatus(orcamento.status)}</span></td>
+                    <td>${formatarData(orcamento.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="verOrcamento(${orcamento.id_orcamento})">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        ${orcamento.status === 'rascunho' ? `
+                            <button class="btn btn-sm btn-primary" onclick="editarOrcamento(${orcamento.id_orcamento})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function mostrarLoading(show) {
+            document.getElementById('loadingOverlay').classList.toggle('d-none', !show);
+        }
+
+        function getStatusBadgeClass(status) {
+            const statusClasses = {
+                'rascunho': 'bg-secondary',
+                'aguardando_aprovacao': 'bg-warning text-dark',
+                'aprovado': 'bg-success',
+                'em_producao': 'bg-primary',
+                'concluido': 'bg-info',
+                'cancelado': 'bg-danger'
+            };
+            return statusClasses[status] || 'bg-secondary';
+        }
+
+        function formatarStatus(status) {
+            const statusFormatado = {
+                'rascunho': 'Rascunho',
+                'aguardando_aprovacao': 'Aguardando Aprovação',
+                'aprovado': 'Aprovado',
+                'em_producao': 'Em Produção',
+                'concluido': 'Concluído',
+                'cancelado': 'Cancelado'
+            };
+            return statusFormatado[status] || status;
+        }
+
+        function formatarData(data) {
+            if (!data) return '';
+            try {
+                const date = new Date(data);
+                return date.toLocaleDateString('pt-BR');
+            } catch (e) {
+                return data;
+            }
+        }
+
+        function mostrarNotificacao(mensagem, tipo) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${tipo === 'error' ? 'danger' : tipo} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                ${mensagem}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+    </script>
+</head>
+<body>
+    <main class="main-content">
+        <div class="content-area">
+            <div class="card-custom">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Cliente</th>
+                                    <th>Tipo Móvel</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th>Data</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaOrcamentos">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Carregando...</span>
+                                        </div>
+                                        <p class="mt-2">Carregando orçamentos...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay d-none" id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+</body>
+</html>
