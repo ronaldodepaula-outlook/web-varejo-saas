@@ -372,7 +372,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             ?>
                         </small></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="perfil.php"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
+                        <li><a class="dropdown-item" href="?view=perfil"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
                         <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Configurações</a></li>
                         <li><a class="dropdown-item" href="#"><i class="bi bi-clipboard-data me-2"></i>Relatórios</a></li>
                         <li><hr class="dropdown-divider"></li>

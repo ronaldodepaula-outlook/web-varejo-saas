@@ -59,7 +59,7 @@ body{background-color:#f8f9fa;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-
           <?php if (is_array($usuario)) { echo htmlspecialchars($usuario['email'] ?? $usuario['email_empresa'] ?? ''); } else { echo htmlspecialchars($usuario); } ?>
         </small></li>
         <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="perfil.php"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
+        <li><a class="dropdown-item" href="?view=perfil"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
         <li><a class="dropdown-item text-danger" href="logout.php"><i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
       </ul>
     </div>

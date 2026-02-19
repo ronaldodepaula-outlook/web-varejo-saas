@@ -182,32 +182,32 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         .pagamento-item:last-child {
             border-bottom: none;
         }
-            padding: 6px 0;
-            /* Resumo de pagamentos - cards horizontais */
-            .resumo-pagamentos-wrapper {
-                display: flex;
-                gap: 12px;
-                align-items: stretch;
-                justify-content: center;
-                flex-wrap: wrap;
-            }
+        
+        /* Resumo de pagamentos - cards horizontais */
+        .resumo-pagamentos-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
 
-            .pagamento-card {
-                background: linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
-                border: 1px solid rgba(0,0,0,0.06);
-                border-radius: 10px;
-                padding: 14px 18px;
-                min-width: 180px;
-                box-shadow: 0 6px 18px rgba(16,24,40,0.04);
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-            }
+        .pagamento-card {
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
+            border: 1px solid rgba(0,0,0,0.06);
+            border-radius: 10px;
+            padding: 14px 18px;
+            min-width: 180px;
+            box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
 
-            .pagamento-card .icon {
-                font-size: 28px;
-                color: var(--primary-color);
+        .pagamento-card .icon {
+            font-size: 28px;
+            color: var(--primary-color);
                 margin-bottom: 8px;
             }
 
@@ -293,7 +293,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             ?>
                         </small></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="perfil.php"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
+                        <li><a class="dropdown-item" href="?view=perfil"><i class="bi bi-person me-2"></i>Meu Perfil</a></li>
                         <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Configurações</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="#" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
@@ -1785,14 +1785,3 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
     <?php if (!defined('APP_SHELL')) { include __DIR__ . '/../components/app-foot.php'; } ?>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
