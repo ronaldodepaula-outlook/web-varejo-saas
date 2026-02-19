@@ -597,41 +597,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($success): ?>
                     <!-- Estado de Sucesso -->
                     <div class="success-state animate-form">
-                        <div class="success-icon delay-1">
-                            <i class="fas fa-check"></i>
-                        </div>
+
                         
-                        <h3 class="mb-3 delay-1">E-mail enviado!</h3>
+                        <h3 class="mb-3 animate-form delay-1">E-mail enviado!</h3>
                         
-                        <div class="nexus-alert nexus-alert-success delay-2">
+                        <div class="nexus-alert nexus-alert-success animate-form delay-2">
                             <i class="fas fa-check-circle"></i>
                             <span><?php echo htmlspecialchars($success); ?></span>
                         </div>
                         
-                        <div class="email-display delay-2">
+                        <div class="email-display animate-form delay-2">
                             <i class="fas fa-envelope me-2" style="color: var(--nexus-primary);"></i>
                             <?php echo htmlspecialchars($_POST['email'] ?? ''); ?>
                         </div>
                         
-                        <div class="info-box delay-2">
+                        <div class="info-box animate-form delay-2">
                             <i class="fas fa-clock"></i>
                             <p>
-                                <strong>O link expira em 60 minutos.</strong><br>
+                                <strong>O link expira em 24 horas.</strong><br>
                                 Se não encontrar o e-mail, verifique sua pasta de spam.
                             </p>
                         </div>
                         
-                        <div class="timer-text delay-3">
+                        <div class="timer-text animate-form delay-3">
                             <i class="fas fa-hourglass-half me-2"></i>
                             Não recebeu? <span id="timer">60</span> segundos para reenviar
                         </div>
                         
-                        <button class="btn-nexus-outline delay-3" id="resendBtn" onclick="resendEmail()" disabled>
+                        <button class="btn-nexus-outline animate-form delay-3" id="resendBtn" onclick="resendEmail()" disabled>
                             <i class="fas fa-redo-alt"></i>
                             Reenviar e-mail
                         </button>
                         
-                        <a href="login.php" class="back-link delay-3">
+                        <a href="login.php" class="back-link animate-form delay-3">
                             <i class="fas fa-arrow-left"></i>
                             Voltar para o login
                         </a>
