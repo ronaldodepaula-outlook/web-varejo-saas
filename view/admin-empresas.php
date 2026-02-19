@@ -9,12 +9,17 @@ if (!isset($_SESSION['authToken'], $_SESSION['usuario'], $_SESSION['empresa'], $
 
 // Verificar e converter o tipo de dados das variáveis de sessão
 $usuario = is_array($_SESSION['usuario']) ? $_SESSION['usuario'] : ['nome' => $_SESSION['usuario']];
-$_SESSION['user_id'] = $_SESSION['user_id'] ?? null;
+$id_usuario = $_SESSION['user_id']
+    ?? ($_SESSION['usuario_id'] ?? ($_SESSION['id_usuario'] ?? null));
+if ($id_usuario === null && is_array($usuario)) {
+    $id_usuario = $usuario['id_usuario'] ?? ($usuario['id'] ?? null);
+}
 $empresa = $_SESSION['empresa'];
 $id_empresa = $_SESSION['id_empresa'];
 $licenca = $_SESSION['licenca'];
 $token = $_SESSION['authToken'];
 $segmento = $_SESSION['segmento'] ?? '';
+$isVarejo = strtolower((string)$segmento) === 'varejo';
 
 // Extrair nome do usuário de forma segura
 $nomeUsuario = '';
@@ -265,7 +270,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     <p class="page-subtitle">Cadastre e gerencie as empresas do sistema</p>
                 </div>
                 <div>
-                    <button class="btn btn-primary" onclick="abrirModalEmpresa()">
+                    <button class="btn btn-primary" onclick="abrirModalEmpresa()" <?php echo $isVarejo ? 'disabled aria-disabled="true" title="Somente administradores podem cadastrar empresas"' : ''; ?>>
                         <i class="bi bi-plus-circle me-2"></i>Nova Empresa
                     </button>
                 </div>
@@ -281,6 +286,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                                 <input type="text" class="form-control" id="searchInput" placeholder="Buscar por nome da empresa ou CNPJ...">
                             </div>
                         </div>
+                        <?php if (!$isVarejo): ?>
                         <div class="col-md-3">
                             <select class="form-select" id="filterSegmento">
                                 <option value="">Todos os segmentos</option>
@@ -300,6 +306,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                                 <option value="inativa">Inativa</option>
                             </select>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -361,7 +368,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             
                             <div class="col-md-6">
                                 <label for="cnpj" class="form-label">CNPJ *</label>
-                                <input type="text" class="form-control" id="cnpj" required>
+                                <input type="text" class="form-control" id="cnpj" required <?php echo $isVarejo ? 'readonly' : ''; ?>>
                                 <div class="invalid-feedback">Por favor, informe um CNPJ válido.</div>
                             </div>
                             
@@ -517,6 +524,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             
             // Endpoints
             EMPRESAS: '/api/v1/empresas',
+            EMPRESAS_POR_USUARIO: '/api/empresas/por-usuario',
             LOGIN: '/api/v1/login',
             LOGOUT: '/api/v1/logout',
             
@@ -540,12 +548,21 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             getEmpresasUrl: function() {
                 return `${this.BASE_URL}${this.EMPRESAS}`;
             },
+
+            // URL completa para empresas por usuario
+            getEmpresasPorUsuarioUrl: function(userId) {
+                return `${this.BASE_URL}${this.EMPRESAS_POR_USUARIO}/${userId}`;
+            },
             
             // URL completa para uma empresa específica
             getEmpresaUrl: function(id) {
                 return `${this.BASE_URL}${this.EMPRESAS}/${id}`;
             }
         };
+
+        const SEGMENTO = <?php echo json_encode(strtolower((string)$segmento)); ?>;
+        const ID_USUARIO = <?php echo json_encode($id_usuario); ?>;
+        const PERFIL_VAREJO = <?php echo json_encode($isVarejo); ?>;
     </script>
     
     <script>
@@ -554,6 +571,42 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         let empresaEditando = null;
         let modalEmpresa = null;
         let modalConfirmacao = null;
+
+        function bloquearCriacaoEmpresa() {
+            if (!PERFIL_VAREJO) {
+                return false;
+            }
+            mostrarNotificacao('Somente administradores podem cadastrar empresas.', 'error');
+            return true;
+        }
+
+        function bloquearExclusaoEmpresa() {
+            if (!PERFIL_VAREJO) {
+                return false;
+            }
+            mostrarNotificacao('Somente administradores podem excluir empresas.', 'error');
+            return true;
+        }
+
+        function aplicarRestricoesCampos() {
+            const bloquear = PERFIL_VAREJO;
+            const camposReadonly = ['nome_empresa', 'cnpj'];
+            const camposDisabled = ['segmento', 'status'];
+
+            camposReadonly.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.readOnly = bloquear;
+                }
+            });
+
+            camposDisabled.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = bloquear;
+                }
+            });
+        }
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
@@ -566,8 +619,14 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             
             // Configurar eventos
             document.getElementById('searchInput').addEventListener('input', filtrarEmpresas);
-            document.getElementById('filterSegmento').addEventListener('change', filtrarEmpresas);
-            document.getElementById('filterStatus').addEventListener('change', filtrarEmpresas);
+            const filterSegmentoEl = document.getElementById('filterSegmento');
+            const filterStatusEl = document.getElementById('filterStatus');
+            if (filterSegmentoEl) {
+                filterSegmentoEl.addEventListener('change', filtrarEmpresas);
+            }
+            if (filterStatusEl) {
+                filterStatusEl.addEventListener('change', filtrarEmpresas);
+            }
             
             // Logoff
             var logoutBtn = document.getElementById('logoutBtn');
@@ -606,8 +665,15 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             try {
                 const token = '<?php echo $token; ?>';
                 console.log('Token sendo usado:', token); // Para debug
-                
-                const response = await fetch(API_CONFIG.getEmpresasUrl(), {
+                const usarPorUsuario = (PERFIL_VAREJO && ID_USUARIO);
+                if (PERFIL_VAREJO && !ID_USUARIO) {
+                    throw new Error('ID do usuario nao encontrado na sessao.');
+                }
+                const url = usarPorUsuario
+                    ? API_CONFIG.getEmpresasPorUsuarioUrl(ID_USUARIO)
+                    : API_CONFIG.getEmpresasUrl();
+
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: API_CONFIG.getHeaders(token)
                 });
@@ -620,9 +686,23 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     throw new Error(`Erro ${response.status}: ${response.statusText}`);
                 }
                 
-                empresas = await response.json();
-                console.log('Empresas carregadas:', empresas); // Para debug
-                
+                const data = await response.json();
+                console.log('Empresas carregadas:', data); // Para debug
+
+                if (usarPorUsuario) {
+                    if (data.empresa) {
+                        empresas = [data.empresa];
+                    } else if (Array.isArray(data)) {
+                        empresas = data;
+                    } else if (data.empresas && Array.isArray(data.empresas)) {
+                        empresas = data.empresas;
+                    } else {
+                        empresas = [];
+                    }
+                } else {
+                    empresas = Array.isArray(data) ? data : [];
+                }
+
                 exibirEmpresas(empresas);
                 atualizarTotalEmpresas(empresas.length);
                 
@@ -630,6 +710,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 console.error('Erro ao carregar empresas:', error);
                 mostrarNotificacao('Erro ao carregar empresas: ' + error.message, 'error');
                 document.getElementById('tbodyEmpresas').innerHTML = '<tr><td colspan="7" class="text-center text-muted">Erro ao carregar dados</td></tr>';
+                atualizarTotalEmpresas(0);
             } finally {
                 mostrarLoading(false);
             }
@@ -638,6 +719,8 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         // Função para exibir empresas na tabela
         function exibirEmpresas(listaEmpresas) {
             const tbody = document.getElementById('tbodyEmpresas');
+            const podeGerenciar = !PERFIL_VAREJO;
+            const podeExcluir = !PERFIL_VAREJO;
             
             if (listaEmpresas.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhuma empresa encontrada</td></tr>';
@@ -660,15 +743,19 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             <button class="btn btn-action btn-outline-primary" onclick="editarEmpresa(${empresa.id_empresa})" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                             <a href="?view=gestao_usuarios&id_empresa=${empresa.id_empresa}" class="btn btn-action btn-outline-primary" onclick="editarEmpresa(${empresa.id_empresa})" title="Gestão de Usuarios">
-                                <i class="bi bi-people"></i>
-                            </a>   
-                             <a href="?view=admin-filiais_empresa&id_empresas=${empresa.id_empresa}" class="btn btn-action btn-outline-primary" onclick="editarEmpresa(${empresa.id_empresa})" title="Gestão de Filiais">
-                                <i class="bi bi-building"></i>
-                            </a>                                                        
-                            <button class="btn btn-action btn-outline-danger" onclick="confirmarExclusao(${empresa.id_empresa}, '${empresa.nome_empresa.replace(/'/g, "\\'")}')" title="Excluir">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                            ${podeGerenciar ? `
+                                <a href="?view=gestao_usuarios&id_empresa=${empresa.id_empresa}" class="btn btn-action btn-outline-primary" title="Gestao de Usuarios">
+                                    <i class="bi bi-people"></i>
+                                </a>   
+                                <a href="?view=admin-filiais_empresa&id_empresas=${empresa.id_empresa}" class="btn btn-action btn-outline-primary" title="Gestao de Filiais">
+                                    <i class="bi bi-building"></i>
+                                </a>
+                            ` : ''}
+                            ${podeExcluir ? `
+                                <button class="btn btn-action btn-outline-danger" onclick="confirmarExclusao(${empresa.id_empresa}, '${empresa.nome_empresa.replace(/'/g, "\\'")}')" title="Excluir">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            ` : ''}
                         </div>
                     </td>
                 </tr>
@@ -677,9 +764,13 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         // Função para abrir modal de nova empresa
         function abrirModalEmpresa() {
+            if (bloquearCriacaoEmpresa()) {
+                return;
+            }
             empresaEditando = null;
             document.getElementById('modalEmpresaLabel').textContent = 'Nova Empresa';
             document.getElementById('formEmpresa').reset();
+            aplicarRestricoesCampos();
             document.getElementById('empresaId').value = '';
             
             // Limpar validação
@@ -720,6 +811,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 document.getElementById('cidade').value = empresa.cidade || '';
                 document.getElementById('estado').value = empresa.estado || '';
                 document.getElementById('status').value = empresa.status || 'ativa';
+                aplicarRestricoesCampos();
                 
                 // Limpar validação
                 document.getElementById('formEmpresa').classList.remove('was-validated');
@@ -737,7 +829,12 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         // Função para salvar empresa (criar ou editar)
         async function salvarEmpresa() {
             const form = document.getElementById('formEmpresa');
-            
+
+            if (PERFIL_VAREJO && !empresaEditando) {
+                mostrarNotificacao('Somente administradores podem cadastrar empresas.', 'error');
+                return;
+            }
+
             if (!form.checkValidity()) {
                 form.classList.add('was-validated');
                 return;
@@ -758,6 +855,13 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 estado: document.getElementById('estado').value,
                 status: document.getElementById('status').value
             };
+
+            if (PERFIL_VAREJO && empresaEditando) {
+                dadosEmpresa.nome_empresa = empresaEditando.nome_empresa;
+                dadosEmpresa.cnpj = empresaEditando.cnpj;
+                dadosEmpresa.segmento = empresaEditando.segmento;
+                dadosEmpresa.status = empresaEditando.status;
+            }
             
             try {
                 const token = '<?php echo $token; ?>';
@@ -810,6 +914,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         // Função para confirmar exclusão
         function confirmarExclusao(id, nome) {
+            if (bloquearExclusaoEmpresa()) {
+                return;
+            }
             document.getElementById('nomeEmpresaExcluir').textContent = nome;
             
             const btnConfirmar = document.getElementById('btnConfirmarExclusao');
@@ -823,6 +930,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         // Função para excluir empresa
         async function excluirEmpresa(id) {
+            if (bloquearExclusaoEmpresa()) {
+                return;
+            }
             mostrarLoading(true);
             
             try {
@@ -854,8 +964,10 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         // Função para filtrar empresas
         function filtrarEmpresas() {
             const termoBusca = document.getElementById('searchInput').value.toLowerCase();
-            const segmentoFiltro = document.getElementById('filterSegmento').value;
-            const statusFiltro = document.getElementById('filterStatus').value;
+            const segmentoEl = document.getElementById('filterSegmento');
+            const statusEl = document.getElementById('filterStatus');
+            const segmentoFiltro = segmentoEl ? segmentoEl.value : '';
+            const statusFiltro = statusEl ? statusEl.value : '';
             
             const empresasFiltradas = empresas.filter(empresa => {
                 const matchBusca = !termoBusca || 

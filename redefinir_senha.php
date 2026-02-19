@@ -26,7 +26,6 @@ $validateToken = function ($tokenValue, $emailValue) use ($config) {
     $response = curl_exec($ch);
     $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlErr = curl_error($ch);
-    curl_close($ch);
 
     if ($response === false) {
         return [false, 'Falha ao comunicar com a API. ' . $curlErr];
@@ -78,7 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $response = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr = curl_error($ch);
-        curl_close($ch);
 
         if ($response === false) {
             $error = 'Falha ao comunicar com a API. ' . $curlErr;
