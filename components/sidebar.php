@@ -37,8 +37,13 @@ $iconMap = [
     'admin_filiais' => 'bi-diagram-3',
     'admin_filiais_empresa' => 'bi-building-fill',
     'adm_clientes' => 'bi-people',
+    'adm_fornecedores' => 'bi-truck',
     'admin_contas_pagar' => 'bi-wallet2',
     'admin_contas_receber' => 'bi-wallet',
+    'compras' => 'bi-bag-check',
+    'compras_cotacoes' => 'bi-clipboard-check',
+    'compras_pedidos' => 'bi-file-earmark-text',
+    'compras_recebimentos' => 'bi-box-arrow-in-down',
     'gestao_usuarios' => 'bi-people',
 ];
 
@@ -51,6 +56,7 @@ $menus = [
             ['view' => 'admin-marcenarias', 'label' => 'Marcenarias'],
             ['view' => 'admin-minhas-filiais', 'label' => 'Minhas Filiais'],
             ['view' => 'adm-clientes', 'label' => 'Clientes'],
+            ['view' => 'adm-fornecedores', 'label' => 'Fornecedores'],
             ['view' => 'admin-orcamentos', 'label' => 'Orcamentos'],
             ['view' => 'admin-ordens_producao', 'label' => 'Ordens de Producao'],
             ['view' => 'admin-estoque', 'label' => 'Estoque'],
@@ -66,6 +72,16 @@ $menus = [
             ['view' => 'home-DashboardPDV', 'label' => 'Dashboard PDV'],
             ['view' => 'admin-vendasAssistidas', 'label' => 'Vendas Assistidas'],
             ['view' => 'adm-clientes', 'label' => 'Clientes'],
+            ['view' => 'adm-fornecedores', 'label' => 'Fornecedores'],
+            [
+                'label' => 'Compras',
+                'icon' => 'compras',
+                'children' => [
+                    ['view' => 'compras-cotacoes', 'label' => 'Cotacoes'],
+                    ['view' => 'compras-pedidos', 'label' => 'Pedido de Compra'],
+                    ['view' => 'compras-recebimentos', 'label' => 'Recebimento'],
+                ],
+            ],
             ['view' => 'admin-contas_pagar', 'label' => 'Contas a Pagar'],
             ['view' => 'admin-contas_receber', 'label' => 'Contas a Receber'],
             ['view' => 'admin-minhas-filiais', 'label' => 'Minhas Filiais'],
@@ -93,13 +109,80 @@ $menus = [
 
 $menu = $menus[$segmento] ?? $menus['varejo'];
 
+function resolve_icon($item, $iconMap) {
+    if (isset($item['icon']) && $item['icon'] !== '') {
+        $icon = (string)$item['icon'];
+        if (strpos($icon, 'bi-') === 0) {
+            return $icon;
+        }
+        $key = normalize_view_name($icon);
+        return $iconMap[$key] ?? 'bi-circle';
+    }
+
+    if (isset($item['view']) && $item['view'] !== '') {
+        $key = normalize_view_name($item['view']);
+        return $iconMap[$key] ?? 'bi-circle';
+    }
+
+    return 'bi-circle';
+}
+
 function render_menu_items($items, $iconMap, $currentView) {
+    static $dropdownIndex = 0;
     foreach ($items as $item) {
+        $children = $item['children'] ?? null;
+        if (is_array($children) && count($children) > 0) {
+            $label = $item['label'] ?? 'Menu';
+            $icon = resolve_icon($item, $iconMap);
+            $childActive = false;
+            $dropdownIndex += 1;
+
+            foreach ($children as $child) {
+                if (isset($child['view']) && is_active_view($child['view'], $currentView)) {
+                    $childActive = true;
+                    break;
+                }
+            }
+
+            $open = $childActive ? ' open' : '';
+            $active = $childActive ? ' active' : '';
+            $ariaExpanded = $childActive ? 'true' : 'false';
+            $submenuId = 'submenu-' . $dropdownIndex;
+
+            echo '<details class="nav-item nav-dropdown"' . $open . '>';
+            echo '<summary class="nav-link' . $active . '" aria-expanded="' . $ariaExpanded . '" aria-controls="' . $submenuId . '" aria-haspopup="true">';
+            echo '<i class="bi ' . htmlspecialchars($icon) . ' nav-icon"></i>';
+            echo '<span class="nav-text">' . htmlspecialchars($label) . '</span>';
+            echo '<i class="bi bi-chevron-down nav-caret"></i>';
+            echo '</summary>';
+            echo '<div class="nav-submenu" id="' . $submenuId . '" aria-label="' . htmlspecialchars($label) . '">';
+
+            foreach ($children as $child) {
+                if (!isset($child['view'])) {
+                    continue;
+                }
+                $childView = $child['view'];
+                $childLabel = $child['label'] ?? $childView;
+                $href = '?view=' . htmlspecialchars($childView);
+                $childIcon = resolve_icon($child, $iconMap);
+                $childActiveClass = is_active_view($childView, $currentView) ? ' active' : '';
+                $aria = is_active_view($childView, $currentView) ? ' aria-current="page"' : '';
+
+                echo '<a href="' . $href . '" class="nav-link nav-sublink' . $childActiveClass . '"' . $aria . '>';
+                echo '<i class="bi ' . htmlspecialchars($childIcon) . ' nav-icon"></i>';
+                echo '<span class="nav-text">' . htmlspecialchars($childLabel) . '</span>';
+                echo '</a>';
+            }
+
+            echo '</div>';
+            echo '</details>';
+            continue;
+        }
+
         $view = $item['view'];
         $label = $item['label'] ?? $view;
         $href = '?view=' . htmlspecialchars($view);
-        $iconKey = normalize_view_name($view);
-        $icon = $iconMap[$iconKey] ?? 'bi-circle';
+        $icon = resolve_icon($item, $iconMap);
         $active = is_active_view($view, $currentView) ? ' active' : '';
         $aria = is_active_view($view, $currentView) ? ' aria-current="page"' : '';
 

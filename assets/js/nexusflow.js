@@ -53,6 +53,22 @@ const nexusFlow = {
         
         // Configurar navegação ativa
         this.setActiveNavItem();
+        this.setupNavDropdowns();
+    },
+
+    // Configurar dropdowns do menu lateral
+    setupNavDropdowns() {
+        const dropdowns = document.querySelectorAll('.nav-dropdown');
+        dropdowns.forEach(dropdown => {
+            const summary = dropdown.querySelector('summary');
+            if (!summary) return;
+
+            summary.setAttribute('aria-expanded', dropdown.hasAttribute('open') ? 'true' : 'false');
+
+            dropdown.addEventListener('toggle', () => {
+                summary.setAttribute('aria-expanded', dropdown.hasAttribute('open') ? 'true' : 'false');
+            });
+        });
     },
     
     // Definir item de navegação ativo

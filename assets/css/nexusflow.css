@@ -146,6 +146,79 @@ body {
     border-left-color: var(--primary-blue);
 }
 
+.nav-dropdown {
+    margin: 0.25rem 0;
+}
+
+.nav-dropdown > summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.nav-dropdown > summary::-webkit-details-marker {
+    display: none;
+}
+
+.nav-dropdown > summary::marker {
+    content: '';
+}
+
+.nav-dropdown > summary:focus-visible {
+    outline: 2px solid rgba(52, 152, 219, 0.6);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.nav-caret {
+    margin-left: auto;
+    transition: transform var(--transition-fast);
+}
+
+.nav-dropdown[open] > summary .nav-caret {
+    transform: rotate(180deg);
+}
+
+.nav-submenu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding-bottom: 0.5rem;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: max-height 0.25s ease, opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.25s;
+}
+
+.nav-dropdown[open] .nav-submenu {
+    max-height: 500px;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition: max-height 0.25s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.nav-link.nav-sublink {
+    padding: 0.6rem 1.5rem 0.6rem 3rem;
+    font-size: 0.9rem;
+    border-left-width: 3px;
+    color: rgba(255,255,255,0.75);
+}
+
+.nav-link.nav-sublink:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: var(--white);
+    border-left-color: var(--primary-blue);
+}
+
+.nav-link.nav-sublink.active {
+    background-color: rgba(52, 152, 219, 0.2);
+    color: var(--white);
+    border-left-color: var(--primary-blue);
+}
+
 .nav-icon {
     width: 20px;
     height: 20px;
@@ -161,6 +234,19 @@ body {
     opacity: 0;
     width: 0;
     overflow: hidden;
+}
+
+.sidebar.collapsed .nav-submenu,
+.sidebar.collapsed .nav-caret {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-caret,
+    .nav-submenu,
+    .nav-dropdown[open] .nav-submenu {
+        transition: none;
+    }
 }
 
 .sidebar.collapsed .nav-header {
