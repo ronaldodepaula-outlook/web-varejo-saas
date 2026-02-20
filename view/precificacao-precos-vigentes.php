@@ -201,6 +201,12 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 <p class="page-subtitle">Acompanhe os precos ativos e o status promocional.</p>
             </div>
             <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-secondary" type="button" onclick="toggleSelecionarTodos()">
+                    <i class="bi bi-check2-square me-2"></i>Selecionar todos
+                </button>
+                <button class="btn btn-outline-success" type="button" onclick="abrirModalEtiquetas()">
+                    <i class="bi bi-printer me-2"></i>Gerar etiquetas
+                </button>
                 <button class="btn btn-outline-primary" type="button" onclick="carregarPrecos()">
                     <i class="bi bi-arrow-clockwise me-2"></i>Atualizar
                 </button>
@@ -245,6 +251,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 <div>
                     <strong>Lista de precos</strong>
                     <div class="text-muted small" id="totalPrecos">0 registro(s)</div>
+                    <div class="text-muted small" id="totalSelecionados">0 selecionado(s)</div>
                 </div>
             </div>
             <div class="card-body">
@@ -252,6 +259,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     <table class="table table-hover table-custom">
                         <thead>
                             <tr>
+                                <th style="width:40px;">
+                                    <input type="checkbox" id="checkTodos" onchange="toggleSelecionarTodos(true)">
+                                </th>
                                 <th>Produto</th>
                                 <th>Filial</th>
                                 <th>Preco base</th>
@@ -264,7 +274,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                         </thead>
                         <tbody id="tbodyPrecos">
                             <tr>
-                                <td colspan="8" class="text-center text-muted">Carregando precos...</td>
+                                <td colspan="9" class="text-center text-muted">Carregando precos...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -341,6 +351,63 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         </div>
     </div>
 
+    <div class="modal fade" id="modalEtiquetas" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Gerar etiquetas de gondola</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Formato *</label>
+                            <select class="form-select" id="etiquetaFormato">
+                                <option value="GONDOLA">Gondola - Padrao mercado</option>
+                                <option value="1B">1B - Testeira 1/2 Frente</option>
+                                <option value="1C">1C - Testeira Preco</option>
+                                <option value="1D">1D - Testeira Frente Inteira</option>
+                                <option value="1E">1E - Etiqueta Pequena EAN13</option>
+                                <option value="1A">1A - Etiqueta Pequena EAN8</option>
+                                <option value="1G">1G - Testeira 1/2 Frente (Zebra)</option>
+                                <option value="1H">1H - Testeira Preco (Zebra)</option>
+                                <option value="1I">1I - Testeira Frente Inteira (Zebra)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Largura (mm)</label>
+                            <input type="number" class="form-control" id="etiquetaLargura" value="120" min="30" step="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Altura (mm)</label>
+                            <input type="number" class="form-control" id="etiquetaAltura" value="50" min="20" step="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Qtd. por produto</label>
+                            <input type="number" class="form-control" id="etiquetaQuantidade" value="1" min="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Mostrar codigo barras</label>
+                            <select class="form-select" id="etiquetaMostrarCodigo">
+                                <option value="1">Sim</option>
+                                <option value="0">Nao</option>
+                            </select>
+                        </div>
+                        <div class="col-12 text-muted small">
+                            O PDF sera gerado seguindo o padrao RMS indicado. Use a impressao do navegador para salvar.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="gerarEtiquetasPDF()">
+                        <i class="bi bi-printer me-2"></i>Gerar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="loading-overlay d-none" id="loadingOverlay">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Carregando...</span>
@@ -356,6 +423,8 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         let filiais = [];
         let produtos = [];
         let modalPreco = null;
+        let modalEtiquetas = null;
+        let etiquetasSelecionadas = [];
 
         const API_CONFIG = {
             BASE_URL: BASE_URL,
@@ -377,6 +446,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         document.addEventListener('DOMContentLoaded', function() {
             modalPreco = new bootstrap.Modal(document.getElementById('modalPreco'));
+            modalEtiquetas = new bootstrap.Modal(document.getElementById('modalEtiquetas'));
             carregarFiliais();
             carregarProdutos();
             carregarPrecos();
@@ -466,7 +536,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             } catch (error) {
                 console.error('Erro ao carregar precos:', error);
                 mostrarNotificacao('Erro ao carregar precos: ' + error.message, 'error');
-                document.getElementById('tbodyPrecos').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Erro ao carregar dados</td></tr>';
+                document.getElementById('tbodyPrecos').innerHTML = '<tr><td colspan="9" class="text-center text-muted">Erro ao carregar dados</td></tr>';
             } finally {
                 mostrarLoading(false);
             }
@@ -475,10 +545,12 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         function renderizarPrecos() {
             const tbody = document.getElementById('tbodyPrecos');
             const totalEl = document.getElementById('totalPrecos');
+            const totalSelecionadosEl = document.getElementById('totalSelecionados');
 
             if (!Array.isArray(precos) || precos.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhum preco encontrado</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Nenhum preco encontrado</td></tr>';
                 if (totalEl) totalEl.textContent = '0 registro(s)';
+                if (totalSelecionadosEl) totalSelecionadosEl.textContent = '0 selecionado(s)';
                 return;
             }
 
@@ -491,6 +563,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
                 return `
                     <tr>
+                        <td>
+                            <input type="checkbox" class="select-preco" data-id="${item.id}" onchange="atualizarSelecao()">
+                        </td>
                         <td>${escapeHtml(item.produto_nome)}</td>
                         <td>${escapeHtml(item.filial_nome)}</td>
                         <td>${formatarMoeda(item.preco_base)}</td>
@@ -511,6 +586,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             }).join('');
 
             if (totalEl) totalEl.textContent = `${precos.length} registro(s)`;
+            atualizarSelecao();
         }
 
         function abrirModalPreco() {
@@ -628,6 +704,451 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             } finally {
                 mostrarLoading(false);
             }
+        }
+
+        function toggleSelecionarTodos(fromHeader) {
+            const checkHeader = document.getElementById('checkTodos');
+            const checkboxes = Array.from(document.querySelectorAll('.select-preco'));
+            if (checkboxes.length === 0) return;
+
+            let shouldCheck = true;
+            if (fromHeader && checkHeader) {
+                shouldCheck = checkHeader.checked;
+            } else if (checkHeader) {
+                shouldCheck = !checkHeader.checked;
+                checkHeader.checked = shouldCheck;
+            }
+
+            checkboxes.forEach(cb => cb.checked = shouldCheck);
+            atualizarSelecao();
+        }
+
+        function atualizarSelecao() {
+            const totalSelecionadosEl = document.getElementById('totalSelecionados');
+            const checkHeader = document.getElementById('checkTodos');
+            const checkboxes = Array.from(document.querySelectorAll('.select-preco'));
+            const selecionados = checkboxes.filter(cb => cb.checked);
+
+            if (totalSelecionadosEl) {
+                totalSelecionadosEl.textContent = `${selecionados.length} selecionado(s)`;
+            }
+
+            if (checkHeader) {
+                checkHeader.checked = checkboxes.length > 0 && selecionados.length === checkboxes.length;
+                checkHeader.indeterminate = selecionados.length > 0 && selecionados.length < checkboxes.length;
+            }
+        }
+
+        function obterSelecionados() {
+            const ids = Array.from(document.querySelectorAll('.select-preco:checked'))
+                .map(cb => parseInt(cb.getAttribute('data-id') || '0', 10))
+                .filter(id => id);
+            return precos.filter(item => ids.includes(item.id));
+        }
+
+        function abrirModalEtiquetas() {
+            const selecionados = obterSelecionados();
+            if (!selecionados.length) {
+                mostrarNotificacao('Selecione pelo menos um produto para gerar etiquetas.', 'warning');
+                return;
+            }
+
+            etiquetasSelecionadas = selecionados;
+            modalEtiquetas.show();
+        }
+
+        function gerarEtiquetasPDF() {
+            if (!Array.isArray(etiquetasSelecionadas) || etiquetasSelecionadas.length === 0) {
+                mostrarNotificacao('Nenhum produto selecionado.', 'warning');
+                return;
+            }
+
+            const formato = document.getElementById('etiquetaFormato').value;
+            const quantidade = parseInt(document.getElementById('etiquetaQuantidade').value || '1', 10);
+            const mostrarCodigo = document.getElementById('etiquetaMostrarCodigo').value === '1';
+
+            const formatMap = {
+                'GONDOLA': { width: 120, height: 50, layout: 'gondola' },
+                '1A': { width: 50, height: 30, layout: 'small', ean: 'EAN8' },
+                '1E': { width: 50, height: 30, layout: 'small', ean: 'EAN13' },
+                '1B': { width: 100, height: 50, layout: 'half' },
+                '1G': { width: 100, height: 50, layout: 'half' },
+                '1C': { width: 100, height: 40, layout: 'price' },
+                '1H': { width: 100, height: 40, layout: 'price' },
+                '1D': { width: 100, height: 80, layout: 'full' },
+                '1I': { width: 100, height: 80, layout: 'full' }
+            };
+
+            const config = { ...(formatMap[formato] || formatMap['1B']) };
+            if (formato === 'GONDOLA') {
+                const largura = parseInt(document.getElementById('etiquetaLargura').value || '120', 10);
+                const altura = parseInt(document.getElementById('etiquetaAltura').value || '50', 10);
+                if (largura > 0) config.width = largura;
+                if (altura > 0) config.height = altura;
+            }
+            const labels = [];
+            etiquetasSelecionadas.forEach(item => {
+                for (let i = 0; i < Math.max(1, quantidade); i += 1) {
+                    labels.push(renderEtiquetaHTML(item, config, mostrarCodigo));
+                }
+            });
+
+            const pageWidth = 210 - 16;
+            const gap = 6;
+            const cols = Math.max(1, Math.floor((pageWidth + gap) / (config.width + gap)));
+
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                mostrarNotificacao('Nao foi possivel abrir a janela de impressao.', 'error');
+                return;
+            }
+
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="pt-BR">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Etiquetas de Gondola</title>
+                    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+                    <style>
+                        @page { size: A4; margin: 8mm; }
+                        body { font-family: Arial, sans-serif; margin: 0; }
+                        .labels {
+                            display: grid;
+                            grid-template-columns: repeat(${cols}, ${config.width}mm);
+                            gap: ${gap}mm;
+                        }
+                        .label {
+                            width: ${config.width}mm;
+                            height: ${config.height}mm;
+                            border: 1px solid #000;
+                            border-radius: 4px;
+                            padding: 4mm;
+                            box-sizing: border-box;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-between;
+                        }
+                        .label-title {
+                            font-size: 11px;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                            color: #555;
+                        }
+                        .label-name {
+                            font-size: 13px;
+                            font-weight: 600;
+                            line-height: 1.2;
+                        }
+                        .label-name.small { font-size: 10px; }
+                        .label-code {
+                            font-size: 11px;
+                            color: #333;
+                        }
+                        .label-date {
+                            font-size: 10px;
+                            color: #555;
+                        }
+                        .label-price {
+                            font-size: 26px;
+                            font-weight: 800;
+                            text-align: right;
+                        }
+                        .label-price.small { font-size: 18px; }
+                        .label-promo {
+                            font-size: 12px;
+                            font-weight: 700;
+                            color: #c0392b;
+                            margin-top: 4px;
+                        }
+                        .label-barcode {
+                            font-family: 'Courier New', monospace;
+                            font-size: 11px;
+                            letter-spacing: 1px;
+                            text-align: center;
+                            margin-top: 2px;
+                        }
+                        .label-footer {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: flex-end;
+                            font-size: 10px;
+                            color: #333;
+                        }
+                        .label.gondola {
+                            padding: 3mm;
+                            background: #fff;
+                            position: relative;
+                        }
+                        .gondola-inner {
+                            border: 2px solid #bfbfbf;
+                            border-radius: 4px;
+                            height: 100%;
+                            display: grid;
+                            grid-template-columns: 16mm 1fr 24mm;
+                            gap: 2mm;
+                            padding: 2mm 10mm 2mm 2mm;
+                            box-sizing: border-box;
+                            background: #f3f3f3;
+                        }
+                        .gondola-promo {
+                            background: #c0392b;
+                            color: #fff;
+                            font-weight: 700;
+                            letter-spacing: 1px;
+                            text-align: center;
+                            writing-mode: vertical-rl;
+                            transform: rotate(180deg);
+                            border-radius: 2px;
+                            font-size: 12px;
+                            padding: 2mm 0;
+                        }
+                        .gondola-body {
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-between;
+                            gap: 2mm;
+                        }
+                        .gondola-title {
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: #222;
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                        }
+                        .gondola-depor {
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: #333;
+                        }
+                        .gondola-price-right {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 1mm;
+                            width: 100%;
+                        }
+                        .gondola-price-right-line {
+                            display: flex;
+                            align-items: baseline;
+                            gap: 1px;
+                        }
+                        .gondola-price-right-main {
+                            font-size: 47.6px;
+                            font-weight: 800;
+                            color: #111;
+                            line-height: 1;
+                        }
+                        .gondola-price-right-comma {
+                            font-size: 47.6px;
+                            font-weight: 800;
+                            color: #111;
+                            line-height: 1;
+                        }
+                        .gondola-price-right-cents {
+                            font-size: 22.4px;
+                            font-weight: 800;
+                            line-height: 1;
+                        }
+                        .gondola-price-right-currency {
+                            font-size: 14px;
+                            font-weight: 700;
+                            line-height: 1;
+                        }
+                        .gondola-validade {
+                            font-size: 10px;
+                            font-weight: 600;
+                            color: #333;
+                        }
+                        .gondola-right {
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: space-between;
+                            align-items: center;
+                            gap: 2mm;
+                        }
+                        .gondola-barcode-horizontal {
+                            width: 100%;
+                            height: 14mm;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        .gondola-barcode-horizontal svg {
+                            width: 58mm;
+                            height: 14mm;
+                        }
+                        .gondola-tag {
+                            border: 1px solid #111;
+                            width: 100%;
+                            text-align: center;
+                            font-size: 9px;
+                            font-weight: 700;
+                            background: #fff;
+                        }
+                        .gondola-tag-title {
+                            background: #111;
+                            color: #fff;
+                            padding: 1mm 0;
+                            font-size: 9px;
+                            letter-spacing: 1px;
+                        }
+                        .gondola-tag-value {
+                            padding: 1mm 0;
+                            font-size: 9px;
+                            text-transform: uppercase;
+                        }
+                        
+                    </style>
+                </head>
+                <body>
+                    <div class="labels">
+                        ${labels.join('')}
+                    </div>
+                    <script>
+                        window.addEventListener('load', function() {
+                            if (typeof JsBarcode === 'undefined') return;
+                            document.querySelectorAll('.gondola-barcode-horizontal[data-ean]').forEach(function(el) {
+                                const value = el.getAttribute('data-ean') || '';
+                                if (!value) return;
+                                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                                el.appendChild(svg);
+                                try {
+                                    JsBarcode(svg, value, {
+                                        format: value.length === 8 ? 'EAN8' : 'EAN13',
+                                        displayValue: false,
+                                        width: 1.4,
+                                        height: 36,
+                                        margin: 0
+                                    });
+                                } catch (e) {
+                                    el.textContent = value;
+                                }
+                            });
+                        });
+                    <\/script>
+                </body>
+                </html>
+            `);
+
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+        }
+
+        function renderEtiquetaHTML(item, config, mostrarCodigo) {
+            const descricao = item.produto_nome || '';
+            const descricaoReduzida = reduzirTexto(descricao, 18);
+            const descricaoMinuscula = descricao.toLowerCase();
+            const codigo = (item.id_produto ?? '') + '';
+            const digito = codigo ? codigo.slice(-1) : '';
+            const ean13 = extrairCodigoBarras(item, 13);
+            const ean8 = extrairCodigoBarras(item, 8);
+            const mmdd = formatarMMDD(new Date());
+
+            const emPromo = item.em_promocao && item.preco_promocional;
+            const precoOferta = emPromo ? formatarMoeda(item.preco_promocional) : '';
+            const precoVenda = emPromo
+                ? precoOferta
+                : formatarMoeda(item.preco_atual || item.preco_base);
+
+            const dePor = emPromo ? `<div class="label-promo">De ${formatarMoeda(item.preco_base)} por ${precoOferta}</div>` : '';
+            const codigoLinha = mostrarCodigo ? `<div class="label-code">${escapeHtml(codigo)}-${escapeHtml(digito)}</div>` : '';
+            const barcode = mostrarCodigo ? `<div class="label-barcode">${escapeHtml(config.ean === 'EAN8' ? (ean8 || '') : (ean13 || ''))}</div>` : '';
+
+            if (config.layout === 'gondola') {
+                const precoBase = formatarMoeda(item.preco_base);
+                const precoNumero = emPromo ? item.preco_promocional : (item.preco_atual || item.preco_base);
+                const partes = formatarPrecoPartes(precoNumero);
+                const validade = item.data_fim_promocao ? formatarDDMM(item.data_fim_promocao) : '';
+            const eanValue = ean13 || ean8;
+            const tagProduto = (eanValue || codigo || '').toString();
+
+            const barcodeHorizontal = mostrarCodigo && eanValue
+                ? `<div class="gondola-barcode-horizontal" data-ean="${escapeHtml(eanValue)}"></div>`
+                : '';
+
+                return `
+                    <div class="label gondola">
+                        <div class="gondola-inner">
+                            <div class="gondola-promo" style="${emPromo ? '' : 'background:#333;'}">${emPromo ? 'PROMO' : 'PRECO'}</div>
+                            <div class="gondola-body">
+                                <div class="gondola-title">${escapeHtml(descricao)}</div>
+                                ${emPromo ? `<div class="gondola-depor">De ${precoBase} por</div>` : '<div class="gondola-depor">&nbsp;</div>'}
+                                ${barcodeHorizontal}
+                                <div class="gondola-validade">${validade ? `Valida ate ${validade}` : ''}</div>
+                            </div>
+                            <div class="gondola-right">
+                                <div class="gondola-price-right">
+                                    <div class="gondola-price-right-line">
+                                        <span class="gondola-price-right-main">${partes.inteiro}</span>
+                                        <span class="gondola-price-right-comma">,</span>
+                                        <span class="gondola-price-right-cents">${partes.centavos}</span>
+                                    </div>
+                                    <div class="gondola-price-right-currency">R$</div>
+                                </div>
+                                <div class="gondola-tag">
+                                    <div class="gondola-tag-title">PRODUTO</div>
+                                    <div class="gondola-tag-value">${escapeHtml(tagProduto)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (config.layout === 'small') {
+                return `
+                    <div class="label">
+                        <div class="label-name small">${escapeHtml(descricaoReduzida)}</div>
+                        ${barcode}
+                        ${codigoLinha}
+                    </div>
+                `;
+            }
+
+            if (config.layout === 'price') {
+                return `
+                    <div class="label">
+                        <div>
+                            ${codigoLinha}
+                            <div class="label-date">${mmdd}</div>
+                            <div class="label-name">${escapeHtml(descricaoMinuscula)}</div>
+                        </div>
+                        <div class="label-price">${precoVenda}</div>
+                        ${dePor}
+                    </div>
+                `;
+            }
+
+            if (config.layout === 'full') {
+                return `
+                    <div class="label">
+                        <div>
+                            <div class="label-name">${escapeHtml(descricao)}</div>
+                            ${barcode}
+                            ${codigoLinha}
+                            <div class="label-date">${mmdd}</div>
+                        </div>
+                        <div class="label-price">${precoVenda}</div>
+                        ${dePor}
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="label">
+                    <div class="label-title">Testeira</div>
+                    <div class="label-name">${escapeHtml(descricao)}</div>
+                    ${barcode}
+                    ${codigoLinha}
+                    <div class="label-date">${mmdd}</div>
+                    <div class="label-price">${precoVenda}</div>
+                    ${dePor}
+                </div>
+            `;
         }
         async function carregarFiliais() {
             const selects = [document.getElementById('filtroFilial'), document.getElementById('precoFilial')].filter(Boolean);
@@ -780,6 +1301,8 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     ?? produtoObj?.produto
                     ?? (typeof item.produto === 'string' ? item.produto : '')
                     ?? '',
+                codigo_barras: item.codigo_barras ?? produtoObj?.codigo_barras ?? '',
+                unidade_medida: item.unidade_medida ?? produtoObj?.unidade_medida ?? '',
                 preco_base: parseFloat(item.preco_base ?? item.preco_normal ?? 0),
                 preco_atual: parseFloat(item.preco_atual ?? item.preco_vigente ?? item.preco ?? 0),
                 preco_promocional: parseFloat(item.preco_promocional ?? 0),
@@ -838,6 +1361,54 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 return `${valor.replace('T', ' ')}:00`;
             }
             return valor;
+        }
+
+        function formatarPrecoPartes(valor) {
+            const numero = parseFloat(valor || 0);
+            if (Number.isNaN(numero)) {
+                return { inteiro: '0', centavos: '00' };
+            }
+            const formatted = new Intl.NumberFormat('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(numero);
+            const partes = formatted.split(',');
+            return { inteiro: partes[0], centavos: partes[1] ?? '00' };
+        }
+
+        function formatarDDMM(data) {
+            if (!data) return '';
+            try {
+                const date = new Date(data);
+                if (Number.isNaN(date.getTime())) return '';
+                const dia = String(date.getDate()).padStart(2, '0');
+                const mes = String(date.getMonth() + 1).padStart(2, '0');
+                return `${dia}/${mes}`;
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function reduzirTexto(texto, limite) {
+            if (!texto) return '';
+            const clean = String(texto).trim();
+            if (clean.length <= limite) return clean;
+            return clean.slice(0, Math.max(0, limite - 1)) + '.';
+        }
+
+        function extrairCodigoBarras(item, tamanho) {
+            const codigo = (item.codigo_barras ?? '').toString().replace(/\D/g, '');
+            if (codigo.length >= tamanho) {
+                return codigo.slice(0, tamanho);
+            }
+            return '';
+        }
+
+        function formatarMMDD(data) {
+            const date = data instanceof Date ? data : new Date();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${mm}${dd}`;
         }
 
         function escapeHtml(value) {
