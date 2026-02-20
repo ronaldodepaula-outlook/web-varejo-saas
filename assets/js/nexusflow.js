@@ -61,13 +61,43 @@ const nexusFlow = {
         const dropdowns = document.querySelectorAll('.nav-dropdown');
         dropdowns.forEach(dropdown => {
             const summary = dropdown.querySelector('summary');
+            const submenu = dropdown.querySelector('.nav-submenu');
             if (!summary) return;
 
-            summary.setAttribute('aria-expanded', dropdown.hasAttribute('open') ? 'true' : 'false');
+            const syncAria = () => {
+                summary.setAttribute('aria-expanded', dropdown.hasAttribute('open') ? 'true' : 'false');
+            };
+
+            const setSubmenuState = (isOpen) => {
+                if (!submenu) return;
+                if (isOpen) {
+                    submenu.style.maxHeight = `${submenu.scrollHeight}px`;
+                    return;
+                }
+
+                submenu.style.maxHeight = `${submenu.scrollHeight}px`;
+                submenu.getBoundingClientRect();
+                submenu.style.maxHeight = '0px';
+            };
+
+            syncAria();
+            if (submenu) {
+                setSubmenuState(dropdown.hasAttribute('open'));
+            }
 
             dropdown.addEventListener('toggle', () => {
-                summary.setAttribute('aria-expanded', dropdown.hasAttribute('open') ? 'true' : 'false');
+                const isOpen = dropdown.hasAttribute('open');
+                syncAria();
+                setSubmenuState(isOpen);
             });
+
+            if (submenu) {
+                window.addEventListener('resize', () => {
+                    if (dropdown.hasAttribute('open')) {
+                        submenu.style.maxHeight = `${submenu.scrollHeight}px`;
+                    }
+                });
+            }
         });
     },
     

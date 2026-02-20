@@ -513,7 +513,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Data de Início *</label>
-                                    <input type="date" class="form-control" id="dataInicioCapa" required>
+                                    <input type="date" class="form-control" id="dataInicioCapa">
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Status *</label>
@@ -1263,7 +1263,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             const filial = document.getElementById('filialCapa').value;
             const dataInicio = document.getElementById('dataInicioCapa').value;
             
-            if (!descricao || !filial || !dataInicio) {
+            if (!descricao || !filial) {
                 mostrarNotificacao('Preencha todos os campos obrigatórios', 'error');
                 return false;
             }
@@ -1287,20 +1287,25 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 const dataInicio = document.getElementById('dataInicioCapa').value;
                 const status = document.getElementById('statusCapa').value;
                 const observacao = document.getElementById('observacoesCapa').value;
+                const dataInventario = dataInicio ? `${dataInicio}T00:00:00Z` : new Date().toISOString();
+                const payloadCapa = {
+                    id_empresa: idEmpresa,
+                    id_filial: parseInt(idFilial),
+                    descricao: descricao,
+                    status: status,
+                    observacao: observacao,
+                    id_usuario: idUsuario
+                };
+
+                if (dataInicio) {
+                    payloadCapa.data_inicio = dataInicio;
+                }
                 
                 // Criar capa de inventário
                 const responseCapa = await fetch(API_CONFIG.CAPA_INVENTARIO_CREATE(), {
                     method: 'POST',
                     headers: API_CONFIG.getHeaders(),
-                    body: JSON.stringify({
-                        id_empresa: idEmpresa,
-                        id_filial: parseInt(idFilial),
-                        descricao: descricao,
-                        data_inicio: dataInicio,
-                        status: status,
-                        observacao: observacao,
-                        id_usuario: idUsuario
-                    })
+                    body: JSON.stringify(payloadCapa)
                 });
                 
                 if (!responseCapa.ok) {
@@ -1329,7 +1334,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             quantidade_fisica: 0, // Inicialmente 0, será atualizado na contagem
                             quantidade_sistema: parseFloat(estoqueAtual),
                             motivo: null,
-                            data_inventario: dataInicio + 'T00:00:00Z',
+                            data_inventario: dataInventario,
                             id_usuario: idUsuario
                         })
                     });

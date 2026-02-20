@@ -309,6 +309,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             <option value="pendente">Pendente</option>
                             <option value="conferido">Conferido</option>
                             <option value="cancelado">Cancelado</option>
+                            <option value="recebido">Recebido</option>
                         </select>
                     </div>
                     <div class="col-md-5 text-md-end">
@@ -472,6 +473,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                                         <option value="pendente">Pendente</option>
                                         <option value="conferido">Conferido</option>
                                         <option value="cancelado">Cancelado</option>
+                                        <option value="recebido">Recebido</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">
@@ -1007,13 +1009,20 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             const pendentes = lista.filter(e => e.status === 'pendente').length;
             const conferidas = lista.filter(e => e.status === 'conferido').length;
 
-            document.getElementById('totalEntradasResumo').textContent = total;
-            document.getElementById('entradasPendentesResumo').textContent = pendentes;
-            document.getElementById('entradasConferidasResumo').textContent = conferidas;
+            const totalEl = document.getElementById('totalEntradasResumo');
+            const pendentesEl = document.getElementById('entradasPendentesResumo');
+            const conferidasEl = document.getElementById('entradasConferidasResumo');
+
+            if (totalEl) totalEl.textContent = total;
+            if (pendentesEl) pendentesEl.textContent = pendentes;
+            if (conferidasEl) conferidasEl.textContent = conferidas;
         }
 
         function atualizarTotal(total) {
-            document.getElementById('totalEntradas').textContent = `${total} entrada(s) encontrada(s)`;
+            const totalEl = document.getElementById('totalEntradas');
+            if (totalEl) {
+                totalEl.textContent = `${total} entrada(s) encontrada(s)`;
+            }
         }
 
         async function salvarEntrada() {
