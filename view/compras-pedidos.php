@@ -651,8 +651,27 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             if (data.data && data.data.data && Array.isArray(data.data.data)) return data.data.data;
             if (data.success && data.data && Array.isArray(data.data)) return data.data;
             if (data.success && data.data && data.data.data && Array.isArray(data.data.data)) return data.data.data;
+            if (data.items && Array.isArray(data.items)) return data.items;
+            if (data.data && data.data.items && Array.isArray(data.data.items)) return data.data.items;
+            if (data.produtos && Array.isArray(data.produtos)) return data.produtos;
+            if (data.data && data.data.produtos && Array.isArray(data.data.produtos)) return data.data.produtos;
             const maybeArray = Object.values(data).find(v => Array.isArray(v));
             return maybeArray || [];
+        }
+
+        function normalizarListaProdutos(data) {
+            const lista = normalizarLista(data);
+            if (Array.isArray(lista) && lista.length > 0) return lista;
+
+            if (data && data.data && data.data.items && Array.isArray(data.data.items)) {
+                return data.data.items;
+            }
+
+            if (data && data.data && data.data.produtos && Array.isArray(data.data.produtos)) {
+                return data.data.produtos;
+            }
+
+            return Array.isArray(data) ? data : [];
         }
 
         function normalizarPedido(item) {
@@ -757,11 +776,17 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                         continue;
                     }
 
-                    const data = await response.json();
-                    const raw = normalizarLista(data);
+                    const data = await parseJsonResponse(response);
+                    if (!data) {
+                        continue;
+                    }
+
+                    const raw = normalizarListaProdutos(data);
                     produtos = raw.map(normalizarProduto).filter(p => p.id_produto);
-                    preencherSelectProdutos();
-                    return;
+                    if (produtos.length > 0) {
+                        preencherSelectProdutos();
+                        return;
+                    }
                 } catch (error) {
                     console.error('Erro ao carregar produtos:', error);
                 }
@@ -769,6 +794,15 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
             produtos = [];
             preencherSelectProdutos();
+        }
+
+        async function parseJsonResponse(response) {
+            try {
+                return await response.json();
+            } catch (error) {
+                console.error('Erro ao interpretar JSON:', error);
+                return null;
+            }
         }
 
         function normalizarProduto(item) {
