@@ -46,6 +46,11 @@ $iconMap = [
     'compras_cotacoes' => 'bi-clipboard-check',
     'compras_pedidos' => 'bi-file-earmark-text',
     'compras_recebimentos' => 'bi-box-arrow-in-down',
+    'precificacao' => 'bi-tags',
+    'precificacao_historico' => 'bi-clock-history',
+    'precificacao_atualizacoes' => 'bi-arrow-repeat',
+    'precificacao_promocoes' => 'bi-lightning-charge',
+    'precificacao_precos_vigentes' => 'bi-currency-dollar',
     'gestao_usuarios' => 'bi-people',
 ];
 
@@ -67,6 +72,16 @@ $menus = [
                 'children' => [
                     ['view' => 'admin-estoque', 'label' => 'Estoque'],
                     ['view' => 'admin-estoque-auditorias', 'label' => 'Auditorias'],
+                ],
+            ],
+            [
+                'label' => 'Precificacao',
+                'icon' => 'precificacao',
+                'children' => [
+                    ['view' => 'precificacao-historico', 'label' => 'Historico de Precos'],
+                    ['view' => 'precificacao-atualizacoes', 'label' => 'Atualizacoes de Precos'],
+                    ['view' => 'precificacao-promocoes', 'label' => 'Promocoes'],
+                    ['view' => 'precificacao-precos-vigentes', 'label' => 'Precos Vigentes'],
                 ],
             ],
             ['view' => 'admin-inventarios', 'label' => 'Inventarios'],
@@ -102,6 +117,16 @@ $menus = [
                 'children' => [
                     ['view' => 'admin-estoque', 'label' => 'Estoque'],
                     ['view' => 'admin-estoque-auditorias', 'label' => 'Auditorias'],
+                ],
+            ],
+            [
+                'label' => 'Precificacao',
+                'icon' => 'precificacao',
+                'children' => [
+                    ['view' => 'precificacao-historico', 'label' => 'Historico de Precos'],
+                    ['view' => 'precificacao-atualizacoes', 'label' => 'Atualizacoes de Precos'],
+                    ['view' => 'precificacao-promocoes', 'label' => 'Promocoes'],
+                    ['view' => 'precificacao-precos-vigentes', 'label' => 'Precos Vigentes'],
                 ],
             ],
             ['view' => 'admin-inventarios', 'label' => 'Inventarios'],
