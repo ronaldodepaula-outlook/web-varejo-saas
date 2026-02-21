@@ -364,6 +364,10 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             <label class="form-label">Formato *</label>
                             <select class="form-select" id="etiquetaFormato">
                                 <option value="GONDOLA">Gondola - Padrao mercado</option>
+                                <option value="A1">Cartaz A1</option>
+                                <option value="A2">Cartaz A2</option>
+                                <option value="A3">Cartaz A3</option>
+                                <option value="A4">Cartaz A4</option>
                                 <option value="1B">1B - Testeira 1/2 Frente</option>
                                 <option value="1C">1C - Testeira Preco</option>
                                 <option value="1D">1D - Testeira Frente Inteira</option>
@@ -769,6 +773,10 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
             const formatMap = {
                 'GONDOLA': { width: 120, height: 50, layout: 'gondola' },
+                'A1': { width: 594, height: 841, layout: 'cartaz' },
+                'A2': { width: 420, height: 594, layout: 'cartaz' },
+                'A3': { width: 297, height: 420, layout: 'cartaz' },
+                'A4': { width: 210, height: 297, layout: 'cartaz' },
                 '1A': { width: 50, height: 30, layout: 'small', ean: 'EAN8' },
                 '1E': { width: 50, height: 30, layout: 'small', ean: 'EAN13' },
                 '1B': { width: 100, height: 50, layout: 'half' },
@@ -793,9 +801,15 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 }
             });
 
-            const pageWidth = 210 - 16;
-            const gap = 6;
-            const cols = Math.max(1, Math.floor((pageWidth + gap) / (config.width + gap)));
+            const bleed = config.layout === 'cartaz' ? 3 : 0;
+            const pageMargin = config.layout === 'cartaz' ? 0 : 8;
+            const pageWidthMm = config.layout === 'cartaz' ? (config.width + bleed * 2) : 210;
+            const pageHeightMm = config.layout === 'cartaz' ? (config.height + bleed * 2) : 297;
+            const usableWidth = pageWidthMm - pageMargin * 2;
+            const gap = config.layout === 'cartaz' ? 0 : 6;
+            const cols = config.layout === 'cartaz'
+                ? 1
+                : Math.max(1, Math.floor((usableWidth + gap) / (config.width + gap)));
 
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
@@ -811,12 +825,18 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     <title>Etiquetas de Gondola</title>
                     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
                     <style>
-                        @page { size: A4; margin: 8mm; }
+                        @page { size: ${pageWidthMm}mm ${pageHeightMm}mm; margin: ${pageMargin}mm; }
                         body { font-family: Arial, sans-serif; margin: 0; }
                         .labels {
                             display: grid;
                             grid-template-columns: repeat(${cols}, ${config.width}mm);
                             gap: ${gap}mm;
+                            height: 100%;
+                        }
+                        .labels.cartaz {
+                            display: block;
+                            height: 100%;
+                            padding: 0;
                         }
                         .label {
                             width: ${config.width}mm;
@@ -828,6 +848,122 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             display: flex;
                             flex-direction: column;
                             justify-content: space-between;
+                        }
+                        .label.cartaz {
+                            width: ${pageWidthMm}mm;
+                            height: ${pageHeightMm}mm;
+                            border: 1px solid #e5e5e5;
+                            border-radius: 8px;
+                            background: #fff;
+                            box-sizing: border-box;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        .cartaz-safe {
+                            width: ${config.width}mm;
+                            height: ${config.height}mm;
+                            padding: 12mm;
+                            box-sizing: border-box;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 8mm;
+                            background: #fff;
+                            --cartaz-scale: 1;
+                            --cartaz-banner: calc(42px * var(--cartaz-scale));
+                            --cartaz-title: calc(38px * var(--cartaz-scale));
+                            --cartaz-subtitle: calc(16px * var(--cartaz-scale));
+                            --cartaz-de: calc(18px * var(--cartaz-scale));
+                            --cartaz-por: calc(18px * var(--cartaz-scale));
+                            --cartaz-price-main: calc(120px * var(--cartaz-scale));
+                            --cartaz-price-comma: calc(120px * var(--cartaz-scale));
+                            --cartaz-price-cents: calc(60px * var(--cartaz-scale));
+                            --cartaz-unit: calc(18px * var(--cartaz-scale));
+                            --cartaz-validade: calc(14px * var(--cartaz-scale));
+                        }
+                        .cartaz-banner {
+                            background: linear-gradient(135deg, #f44336 0%, #b71c1c 100%);
+                            color: #fff;
+                            font-size: var(--cartaz-banner);
+                            font-weight: 800;
+                            text-transform: uppercase;
+                            text-align: center;
+                            padding: 6mm 4mm;
+                            border-radius: 6px;
+                            letter-spacing: 2px;
+                        }
+                        .cartaz-title {
+                            font-size: var(--cartaz-title);
+                            font-weight: 800;
+                            text-transform: uppercase;
+                            text-align: center;
+                            color: #111;
+                            line-height: 1.1;
+                        }
+                        .cartaz-subtitle {
+                            text-align: center;
+                            font-size: var(--cartaz-subtitle);
+                            color: #666;
+                        }
+                        .cartaz-price-block {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 6mm;
+                            margin-top: auto;
+                        }
+                        .cartaz-de {
+                            font-size: var(--cartaz-de);
+                            color: #666;
+                            text-decoration: line-through;
+                        }
+                        .cartaz-por {
+                            font-size: var(--cartaz-por);
+                            font-weight: 700;
+                            color: #c62828;
+                        }
+                        .cartaz-price {
+                            display: flex;
+                            align-items: baseline;
+                            gap: 2mm;
+                            color: #c62828;
+                            font-weight: 800;
+                        }
+                        .cartaz-price-main {
+                            font-size: var(--cartaz-price-main);
+                            line-height: 0.9;
+                        }
+                        .cartaz-price-comma {
+                            font-size: var(--cartaz-price-comma);
+                            line-height: 0.9;
+                        }
+                        .cartaz-price-cents {
+                            font-size: var(--cartaz-price-cents);
+                            line-height: 0.9;
+                        }
+                        .cartaz-unit {
+                            font-size: var(--cartaz-unit);
+                            color: #444;
+                            text-transform: uppercase;
+                        }
+                        .cartaz-footer {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-top: auto;
+                            gap: 6mm;
+                        }
+                        .cartaz-validade {
+                            font-size: var(--cartaz-validade);
+                            color: #777;
+                        }
+                        .cartaz-barcode {
+                            width: 80mm;
+                            height: 20mm;
+                        }
+                        .cartaz-barcode svg {
+                            width: 80mm;
+                            height: 20mm;
                         }
                         .label-title {
                             font-size: 11px;
@@ -885,9 +1021,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             border-radius: 4px;
                             height: 100%;
                             display: grid;
-                            grid-template-columns: 16mm 1fr 24mm;
+                            grid-template-columns: 13mm 1fr 24mm;
                             gap: 2mm;
-                            padding: 2mm 10mm 2mm 2mm;
+                            padding: 2mm 10mm 2mm 3mm;
                             box-sizing: border-box;
                             background: #f3f3f3;
                         }
@@ -900,8 +1036,12 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             writing-mode: vertical-rl;
                             transform: rotate(180deg);
                             border-radius: 2px;
-                            font-size: 12px;
-                            padding: 2mm 0;
+                            font-size: 11px;
+                            padding: 1.5mm 0;
+                            margin: 0 0.5mm;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
                         }
                         .gondola-body {
                             display: flex;
@@ -910,12 +1050,15 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             gap: 2mm;
                         }
                         .gondola-title {
-                            font-size: 13px;
+                            font-size: 15px;
                             font-weight: 700;
                             color: #222;
-                            white-space: nowrap;
+                            margin-top: 1mm;
+                            line-height: 1.15;
+                            display: -webkit-box;
+                            -webkit-line-clamp: 2;
+                            -webkit-box-orient: vertical;
                             overflow: hidden;
-                            text-overflow: ellipsis;
                         }
                         .gondola-depor {
                             font-size: 11px;
@@ -936,7 +1079,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             gap: 1px;
                         }
                         .gondola-price-right-main {
-                            font-size: 47.6px;
+                            font-size: 57.1px;
                             font-weight: 800;
                             color: #111;
                             line-height: 1;
@@ -1004,13 +1147,13 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     </style>
                 </head>
                 <body>
-                    <div class="labels">
+                    <div class="labels ${config.layout === 'cartaz' ? 'cartaz' : ''}">
                         ${labels.join('')}
                     </div>
                     <script>
                         window.addEventListener('load', function() {
                             if (typeof JsBarcode === 'undefined') return;
-                            document.querySelectorAll('.gondola-barcode-horizontal[data-ean]').forEach(function(el) {
+                            document.querySelectorAll('.gondola-barcode-horizontal[data-ean], .cartaz-barcode[data-ean]').forEach(function(el) {
                                 const value = el.getAttribute('data-ean') || '';
                                 if (!value) return;
                                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1063,17 +1206,17 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 const precoNumero = emPromo ? item.preco_promocional : (item.preco_atual || item.preco_base);
                 const partes = formatarPrecoPartes(precoNumero);
                 const validade = item.data_fim_promocao ? formatarDDMM(item.data_fim_promocao) : '';
-            const eanValue = ean13 || ean8;
-            const tagProduto = (eanValue || codigo || '').toString();
+                const eanValue = ean13 || ean8;
+                const tagProduto = (eanValue || codigo || '').toString();
 
-            const barcodeHorizontal = mostrarCodigo && eanValue
-                ? `<div class="gondola-barcode-horizontal" data-ean="${escapeHtml(eanValue)}"></div>`
-                : '';
+                const barcodeHorizontal = mostrarCodigo && eanValue
+                    ? `<div class="gondola-barcode-horizontal" data-ean="${escapeHtml(eanValue)}"></div>`
+                    : '';
 
                 return `
                     <div class="label gondola">
                         <div class="gondola-inner">
-                            <div class="gondola-promo" style="${emPromo ? '' : 'background:#333;'}">${emPromo ? 'PROMO' : 'PRECO'}</div>
+                            <div class="gondola-promo" style="${emPromo ? '' : 'background:#333;'}">${emPromo ? 'OFERTA' : 'APROVEITE'}</div>
                             <div class="gondola-body">
                                 <div class="gondola-title">${escapeHtml(descricao)}</div>
                                 ${emPromo ? `<div class="gondola-depor">De ${precoBase} por</div>` : '<div class="gondola-depor">&nbsp;</div>'}
@@ -1093,6 +1236,68 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                                     <div class="gondola-tag-title">PRODUTO</div>
                                     <div class="gondola-tag-value">${escapeHtml(tagProduto)}</div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (config.layout === 'cartaz') {
+                const escala = calcularEscalaCartaz(config);
+                const isA1 = config.width === 594 && config.height === 841;
+                const baseA1 = {
+                    banner: 290,
+                    title: 160,
+                    subtitle: 10,
+                    de: 120,
+                    por: 120,
+                    priceMain: 900,
+                    priceComma: 300,
+                    priceCents: 400,
+                    unit: 90,
+                    validade: 90
+                };
+                const fator = isA1 ? 1 : Math.min(config.width / 594, config.height / 841);
+                let cartazVars = `--cartaz-scale:${escala};`;
+                cartazVars += `--cartaz-banner:${(baseA1.banner * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-title:${(baseA1.title * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-subtitle:${(baseA1.subtitle * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-de:${(baseA1.de * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-por:${(baseA1.por * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-price-main:${(baseA1.priceMain * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-price-comma:${(baseA1.priceComma * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-price-cents:${(baseA1.priceCents * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-unit:${(baseA1.unit * fator).toFixed(2)}px;`;
+                cartazVars += `--cartaz-validade:${(baseA1.validade * fator).toFixed(2)}px;`;
+                const precoNumero = emPromo ? item.preco_promocional : (item.preco_atual || item.preco_base);
+                const partes = formatarPrecoPartes(precoNumero);
+                const validade = item.data_fim_promocao ? formatarDDMM(item.data_fim_promocao) : '';
+                const eanValue = ean13 || ean8;
+                const unidade = item.unidade_medida ? `/${item.unidade_medida}` : 'unidade';
+                const bannerTexto = emPromo ? 'OFERTA' : 'APROVEITE';
+
+                const barcode = mostrarCodigo && eanValue
+                    ? `<div class="cartaz-barcode" data-ean="${escapeHtml(eanValue)}"></div>`
+                    : '';
+
+                return `
+                    <div class="label cartaz">
+                        <div class="cartaz-safe" style="${cartazVars}">
+                            <div class="cartaz-banner">${bannerTexto}</div>
+                            <div class="cartaz-title">${escapeHtml(descricao)}</div>
+                            ${emPromo ? `<div class="cartaz-de">DE: ${formatarMoeda(item.preco_base)}</div>` : '<div class="cartaz-subtitle">&nbsp;</div>'}
+                            <div class="cartaz-price-block">
+                                <div class="cartaz-por">POR: R$</div>
+                                <div class="cartaz-price">
+                                    <span class="cartaz-price-main">${partes.inteiro}</span>
+                                    <span class="cartaz-price-comma">,</span>
+                                    <span class="cartaz-price-cents">${partes.centavos}</span>
+                                </div>
+                                <div class="cartaz-unit">${escapeHtml(unidade)}</div>
+                            </div>
+                            <div class="cartaz-footer">
+                                ${barcode}
+                                <div class="cartaz-validade">${validade ? `Validade ate ${validade}` : ''}</div>
                             </div>
                         </div>
                     </div>
@@ -1409,6 +1614,14 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             const mm = String(date.getMonth() + 1).padStart(2, '0');
             const dd = String(date.getDate()).padStart(2, '0');
             return `${mm}${dd}`;
+        }
+
+        function calcularEscalaCartaz(config) {
+            if (!config || config.layout !== 'cartaz') return 1;
+            const baseWidth = 297;
+            const baseHeight = 420;
+            const escala = Math.min(config.width / baseWidth, config.height / baseHeight);
+            return Math.max(0.6, Math.min(2.0, escala));
         }
 
         function escapeHtml(value) {
