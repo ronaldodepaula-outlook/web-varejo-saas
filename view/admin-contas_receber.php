@@ -105,61 +105,6 @@ body{background-color:#f8f9fa;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-
 </div>
 
 <script>
-const ENDPOINTS_CR={
-  LIST:`${BASE_URL}/api/v1/marcenaria/contas-receber`,
-  SHOW:id=>`${BASE_URL}/api/v1/marcenaria/contas-receber/${id}`,
-  RECEBER:id=>`${BASE_URL}/api/v1/marcenaria/contas-receber/${id}/registrar-pagamento`,
-  STATS:`${BASE_URL}/api/v1/marcenaria/contas-receber/estatisticas`
-};
-async function carregarCR(){
-  showLoading(true);
-  try{
-    const r=await fetch(ENDPOINTS_CR.LIST,{headers:API_HEADERS});
-    const data=await r.json();
-    document.getElementById('tbodyCR').innerHTML=(data||[]).map(t=>`
-      <tr>
-        <td>#${t.id??t.id_conta}</td>
-        <td>${t.cliente?.nome??'-'}</td>
-        <td>${t.descricao??'-'}</td>
-        <td>${t.data_vencimento? new Date(t.data_vencimento).toLocaleDateString('pt-BR'):'-'}</td>
-        <td>${(t.valor_total??t.valor??0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
-        <td><span class="badge ${t.status==='pago'?'bg-success': 'bg-warning'}">${t.status??'pendente'}</span></td>
-        <td><button class="btn btn-outline-success btn-sm" onclick="abrirReceber(${t.id??t.id_conta},${t.valor??t.valor_total??0})"><i class="bi bi-cash-coin"></i></button></td>
-      </tr>
-    `).join('');
-  }catch(e){ notify('Erro ao listar CR: '+e.message,'error'); }
-  finally{ showLoading(false); }
-}
-function abrirReceber(id,valor){
-  document.getElementById('rc_id').value=id;
-  document.getElementById('rc_valor').value=valor||0;
-  document.getElementById('rc_data').value=new Date().toISOString().split('T')[0];
-  new bootstrap.Modal(document.getElementById('modalReceber')).show();
-}
-async function salvarRecebimento(){
-  const id=document.getElementById('rc_id').value;
-  const payload={ valor: Number(document.getElementById('rc_valor').value||0), data_pagamento: document.getElementById('rc_data').value };
-  showLoading(true);
-  try{
-    const r=await fetch(ENDPOINTS_CR.RECEBER(id),{method:'POST',headers:API_HEADERS,body:JSON.stringify(payload)});
-    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error('HTTP '+r.status+' '+JSON.stringify(j)); }
-    notify('Pagamento registrado!','success'); bootstrap.Modal.getInstance(document.getElementById('modalReceber')).hide(); carregarCR();
-  }catch(e){ notify('Erro ao registrar pagamento: '+e.message,'error'); }
-  finally{ showLoading(false); }
-}
-async function carregarEstatisticas(){
-  showLoading(true);
-  try{ const r=await fetch(ENDPOINTS_CR.STATS,{headers:API_HEADERS}); const d=await r.json(); console.log('stats CR',d); notify('Estatísticas carregadas.','info'); } 
-  catch(e){ notify('Erro ao carregar estatísticas: '+e.message,'error'); } finally{ showLoading(false); }
-}
-document.addEventListener('DOMContentLoaded',carregarCR);
-</script>
-</div>
-</main>
-<div class="loading-overlay d-none" id="loadingOverlay">
-  <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>
-</div>
-<script>
 const BASE_URL='<?= addslashes($config['api_base']) ?>';
 const idEmpresa=<?php echo $id_empresa; ?>;
 const idUsuario=<?php echo $id_usuario; ?>;
@@ -178,7 +123,111 @@ function notify(msg,type='info'){
   n.innerHTML=`${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
   document.body.appendChild(n); setTimeout(()=>{n.remove();},5000);
 }
+const ENDPOINTS_CR={
+  LIST:`${BASE_URL}/api/v1/financeiro/contas-receber`,
+  SHOW:id=>`${BASE_URL}/api/v1/financeiro/contas-receber/${id}`,
+  UPDATE:id=>`${BASE_URL}/api/v1/financeiro/contas-receber/${id}`
+};
+function normalizarLista(data){
+  if(!data) return [];
+  if(Array.isArray(data)) return data;
+  if(Array.isArray(data.data)) return data.data;
+  if(data.data && Array.isArray(data.data.data)) return data.data.data;
+  if(data.items && Array.isArray(data.items)) return data.items;
+  return [];
+}
+function formatarData(valor){
+  if(!valor) return '-';
+  const d=new Date(valor);
+  return isNaN(d.getTime()) ? valor : d.toLocaleDateString('pt-BR');
+}
+function formatarMoeda(valor){
+  return Number(valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function statusBadge(status){
+  const s=(status||'aberta').toLowerCase();
+  if(s==='quitada') return 'bg-success';
+  if(s==='parcial') return 'bg-warning';
+  if(s==='atrasada') return 'bg-danger';
+  if(s==='cancelada') return 'bg-secondary';
+  return 'bg-warning';
+}
+async function carregarCR(){
+  showLoading(true);
+  try{
+    const r=await fetch(`${ENDPOINTS_CR.LIST}?id_empresa=${idEmpresa}`,{headers:API_HEADERS});
+    const data=normalizarLista(await r.json());
+    if(!data.length){
+      document.getElementById('tbodyCR').innerHTML='<tr><td colspan="7" class="text-center text-muted py-4">Nenhuma conta encontrada</td></tr>';
+      return;
+    }
+    document.getElementById('tbodyCR').innerHTML=(data||[]).map(t=>{
+      const id=t.id_conta_receber ?? t.id;
+      const cliente=t.cliente?.nome ?? t.nome_cliente ?? (t.id_orcamento ? `Orçamento #${t.id_orcamento}` : '-');
+      const descricao=t.descricao ?? '-';
+      const vencimento=formatarData(t.data_vencimento);
+      const valor=formatarMoeda(t.valor_total ?? t.valor ?? 0);
+      const status=t.status ?? 'aberta';
+      const saldo=(Number(t.valor_total||0) - Number(t.valor_recebido||0));
+      return `
+      <tr>
+        <td>#${id}</td>
+        <td>${cliente}</td>
+        <td>${descricao}</td>
+        <td>${vencimento}</td>
+        <td>${valor}</td>
+        <td><span class="badge ${statusBadge(status)}">${status}</span></td>
+        <td><button class="btn btn-outline-success btn-sm" onclick="abrirReceber(${id},${saldo})"><i class="bi bi-cash-coin"></i></button></td>
+      </tr>
+    `;}).join('');
+  }catch(e){ notify('Erro ao listar CR: '+e.message,'error'); }
+  finally{ showLoading(false); }
+}
+function abrirReceber(id,valor){
+  document.getElementById('rc_id').value=id;
+  document.getElementById('rc_valor').value=valor||0;
+  document.getElementById('rc_data').value=new Date().toISOString().split('T')[0];
+  new bootstrap.Modal(document.getElementById('modalReceber')).show();
+}
+async function salvarRecebimento(){
+  const id=document.getElementById('rc_id').value;
+  const valorInformado=Number(document.getElementById('rc_valor').value||0);
+  const dataPagto=document.getElementById('rc_data').value;
+  showLoading(true);
+  try{
+    const atualResp=await fetch(ENDPOINTS_CR.SHOW(id),{headers:API_HEADERS});
+    if(!atualResp.ok){ throw new Error('HTTP '+atualResp.status); }
+    const atual=await atualResp.json();
+    const recebidoAtual=Number(atual.valor_recebido||0);
+    const novoRecebido=recebidoAtual + valorInformado;
+    const payload={ valor_recebido: novoRecebido, data_recebimento: dataPagto };
+    const r=await fetch(ENDPOINTS_CR.UPDATE(id),{method:'PUT',headers:API_HEADERS,body:JSON.stringify(payload)});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error('HTTP '+r.status+' '+JSON.stringify(j)); }
+    notify('Pagamento registrado!','success');
+    bootstrap.Modal.getInstance(document.getElementById('modalReceber')).hide();
+    carregarCR();
+  }catch(e){ notify('Erro ao registrar pagamento: '+e.message,'error'); }
+  finally{ showLoading(false); }
+}
+async function carregarEstatisticas(){
+  showLoading(true);
+  try{
+    const r=await fetch(`${ENDPOINTS_CR.LIST}?id_empresa=${idEmpresa}`,{headers:API_HEADERS});
+    const data=normalizarLista(await r.json());
+    const total=data.length;
+    const abertas=data.filter(i=>i.status==='aberta').length;
+    const atrasadas=data.filter(i=>i.status==='atrasada').length;
+    notify(`Total: ${total} | Abertas: ${abertas} | Atrasadas: ${atrasadas}`,'info');
+  }catch(e){ notify('Erro ao carregar estatísticas: '+e.message,'error'); }
+  finally{ showLoading(false); }
+}
+document.addEventListener('DOMContentLoaded',carregarCR);
 </script>
+</div>
+</main>
+<div class="loading-overlay d-none" id="loadingOverlay">
+  <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>
+</div>
     <?php if (!defined('APP_SHELL')) { include __DIR__ . '/../components/app-foot.php'; } ?>
 </body></html>
 

@@ -42,6 +42,7 @@ $iconMap = [
     'adm_fornecedores' => 'bi-truck',
     'admin_contas_pagar' => 'bi-wallet2',
     'admin_contas_receber' => 'bi-wallet',
+    'financeiro' => 'bi-cash-coin',
     'compras' => 'bi-bag-check',
     'compras_cotacoes' => 'bi-clipboard-check',
     'compras_pedidos' => 'bi-file-earmark-text',
@@ -64,6 +65,14 @@ $menus = [
             ['view' => 'admin-minhas-filiais', 'label' => 'Minhas Filiais'],
             ['view' => 'adm-clientes', 'label' => 'Clientes'],
             ['view' => 'adm-fornecedores', 'label' => 'Fornecedores'],
+            [
+                'label' => 'Financeiro',
+                'icon' => 'financeiro',
+                'children' => [
+                    ['view' => 'admin-contas_pagar', 'label' => 'Contas a Pagar'],
+                    ['view' => 'admin-contas_receber', 'label' => 'Contas a Receber'],
+                ],
+            ],
             ['view' => 'admin-orcamentos', 'label' => 'Orcamentos'],
             ['view' => 'admin-ordens_producao', 'label' => 'Ordens de Producao'],
             [
@@ -106,8 +115,14 @@ $menus = [
                     ['view' => 'compras-recebimentos', 'label' => 'Recebimento'],
                 ],
             ],
-            ['view' => 'admin-contas_pagar', 'label' => 'Contas a Pagar'],
-            ['view' => 'admin-contas_receber', 'label' => 'Contas a Receber'],
+            [
+                'label' => 'Financeiro',
+                'icon' => 'financeiro',
+                'children' => [
+                    ['view' => 'admin-contas_pagar', 'label' => 'Contas a Pagar'],
+                    ['view' => 'admin-contas_receber', 'label' => 'Contas a Receber'],
+                ],
+            ],
             ['view' => 'admin-minhas-filiais', 'label' => 'Minhas Filiais'],
             ['view' => 'home', 'label' => 'Home'],
             ['view' => 'admin-empresas', 'label' => 'Empresas'],

@@ -29,31 +29,80 @@ const nexusFlow = {
         const sidebarToggle = document.querySelector('.sidebar-toggle');
         const sidebar = document.querySelector('.sidebar');
         const mainContent = document.querySelector('.main-content');
-        
+        const overlay = this.ensureSidebarOverlay();
+        const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+        const openMobileMenu = () => {
+            if (!sidebar) return;
+            sidebar.classList.remove('collapsed');
+            if (mainContent) {
+                mainContent.classList.remove('sidebar-collapsed');
+            }
+            sidebar.classList.add('show');
+            overlay.classList.add('show');
+            document.body.classList.add('sidebar-open');
+        };
+
+        const closeMobileMenu = () => {
+            if (!sidebar) return;
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+            document.body.classList.remove('sidebar-open');
+        };
+
         if (sidebarToggle && sidebar) {
             sidebarToggle.addEventListener('click', () => {
+                if (isMobile()) {
+                    if (sidebar.classList.contains('show')) {
+                        closeMobileMenu();
+                    } else {
+                        openMobileMenu();
+                    }
+                    return;
+                }
+
                 sidebar.classList.toggle('collapsed');
                 if (mainContent) {
                     mainContent.classList.toggle('sidebar-collapsed');
                 }
-                
+
                 // Salvar estado da sidebar
                 localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
             });
-            
+
             // Restaurar estado da sidebar
             const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-            if (isCollapsed) {
+            if (isCollapsed && !isMobile()) {
                 sidebar.classList.add('collapsed');
                 if (mainContent) {
                     mainContent.classList.add('sidebar-collapsed');
                 }
             }
         }
-        
-        // Configurar navegação ativa
+
+        if (overlay) {
+            overlay.addEventListener('click', closeMobileMenu);
+        }
+
+        window.addEventListener('resize', () => {
+            if (!isMobile()) {
+                closeMobileMenu();
+            }
+        });
+
+        // Configurar navega??o ativa
         this.setActiveNavItem();
         this.setupNavDropdowns();
+    },
+
+    ensureSidebarOverlay() {
+        let overlay = document.querySelector('.sidebar-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'sidebar-overlay';
+            document.body.appendChild(overlay);
+        }
+        return overlay;
     },
 
     // Configurar dropdowns do menu lateral

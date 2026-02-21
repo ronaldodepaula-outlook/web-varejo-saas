@@ -128,39 +128,93 @@ body{background-color:#f8f9fa;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-
 </div>
 
 <script>
-const ENDPOINTS_CP={
-  LIST:`${BASE_URL}/api/v1/marcenaria/contas-pagar`,
-  CREATE:`${BASE_URL}/api/v1/marcenaria/contas-pagar`,
-  SHOW:id=>`${BASE_URL}/api/v1/marcenaria/contas-pagar/${id}`,
-  UPDATE:id=>`${BASE_URL}/api/v1/marcenaria/contas-pagar/${id}`,
-  PAGAR:id=>`${BASE_URL}/api/v1/marcenaria/contas-pagar/${id}/registrar-pagamento`,
-  STATS:`${BASE_URL}/api/v1/marcenaria/contas-pagar/estatisticas`
+const BASE_URL='<?= addslashes($config['api_base']) ?>';
+const idEmpresa=<?php echo $id_empresa; ?>;
+const idUsuario=<?php echo $id_usuario; ?>;
+const token='<?php echo $token; ?>';
+const API_HEADERS={
+  'Authorization': `Bearer ${token}`,
+  'Accept': 'application/json',
+  'Content-Type': 'application/json',
+  'X-ID-EMPRESA': String(idEmpresa)
 };
+function showLoading(v){document.getElementById('loadingOverlay').classList.toggle('d-none',!v)}
+function notify(msg,type='info'){
+  const n=document.createElement('div');
+  n.className=`alert alert-${type==='error'?'danger':type} alert-dismissible fade show position-fixed`;
+  n.style.cssText='top:20px;right:20px;z-index:9999;min-width:300px;';
+  n.innerHTML=`${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+  document.body.appendChild(n); setTimeout(()=>{n.remove();},5000);
+}
+const ENDPOINTS_CP={
+  LIST:`${BASE_URL}/api/v1/financeiro/contas-pagar`,
+  CREATE:`${BASE_URL}/api/v1/financeiro/contas-pagar`,
+  SHOW:id=>`${BASE_URL}/api/v1/financeiro/contas-pagar/${id}`,
+  UPDATE:id=>`${BASE_URL}/api/v1/financeiro/contas-pagar/${id}`
+};
+function normalizarLista(data){
+  if(!data) return [];
+  if(Array.isArray(data)) return data;
+  if(Array.isArray(data.data)) return data.data;
+  if(data.data && Array.isArray(data.data.data)) return data.data.data;
+  if(data.items && Array.isArray(data.items)) return data.items;
+  return [];
+}
+function formatarData(valor){
+  if(!valor) return '-';
+  const d=new Date(valor);
+  return isNaN(d.getTime()) ? valor : d.toLocaleDateString('pt-BR');
+}
+function formatarMoeda(valor){
+  return Number(valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function statusBadge(status){
+  const s=(status||'aberta').toLowerCase();
+  if(s==='quitada') return 'bg-success';
+  if(s==='parcial') return 'bg-warning';
+  if(s==='atrasada') return 'bg-danger';
+  if(s==='cancelada') return 'bg-secondary';
+  return 'bg-warning';
+}
 async function carregarCP(){
   showLoading(true);
   try{
-    const r=await fetch(ENDPOINTS_CP.LIST,{headers:API_HEADERS});
-    const data=await r.json();
-    document.getElementById('tbodyCP').innerHTML=(data||[]).map(t=>`
+    const r=await fetch(`${ENDPOINTS_CP.LIST}?id_empresa=${idEmpresa}`,{headers:API_HEADERS});
+    const data=normalizarLista(await r.json());
+    if(!data.length){
+      document.getElementById('tbodyCP').innerHTML='<tr><td colspan="8" class="text-center text-muted py-4">Nenhuma conta encontrada</td></tr>';
+      return;
+    }
+    document.getElementById('tbodyCP').innerHTML=(data||[]).map(t=>{
+      const id=t.id_conta_pagar ?? t.id;
+      const fornecedor=t.fornecedor?.razao_social ?? t.fornecedor?.nome ?? t.id_fornecedor ?? '-';
+      const descricao=t.descricao ?? '-';
+      const emissao=formatarData(t.data_emissao);
+      const vencimento=formatarData(t.data_vencimento);
+      const valor=formatarMoeda(t.valor_total ?? 0);
+      const status=t.status ?? 'aberta';
+      const saldo=(Number(t.valor_total||0) - Number(t.valor_pago||0));
+      return `
       <tr>
-        <td>#${t.id??t.id_conta}</td>
-        <td>${t.fornecedor?.nome??t.id_fornecedor??'-'}</td>
-        <td>${t.descricao??'-'}</td>
-        <td>${t.data_emissao? new Date(t.data_emissao).toLocaleDateString('pt-BR'):'-'}</td>
-        <td>${t.data_vencimento? new Date(t.data_vencimento).toLocaleDateString('pt-BR'):'-'}</td>
-        <td>${(t.valor_total??0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
-        <td><span class="badge ${t.status==='pago'?'bg-success':'bg-warning'}">${t.status??'pendente'}</span></td>
+        <td>#${id}</td>
+        <td>${fornecedor}</td>
+        <td>${descricao}</td>
+        <td>${emissao}</td>
+        <td>${vencimento}</td>
+        <td>${valor}</td>
+        <td><span class="badge ${statusBadge(status)}">${status}</span></td>
         <td class="d-flex gap-1">
-          <button class="btn btn-outline-secondary btn-sm" onclick="editar(${t.id??t.id_conta})" title="Editar"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-outline-success btn-sm" onclick="abrirPagar(${t.id??t.id_conta},${t.valor_total??0})" title="Pagar"><i class="bi bi-cash-coin"></i></button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="editar(${id})" title="Editar"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-outline-success btn-sm" onclick="abrirPagar(${id},${saldo})" title="Pagar"><i class="bi bi-cash-coin"></i></button>
         </td>
       </tr>
-    `).join('');
+    `;}).join('');
   }catch(e){ notify('Erro ao listar CP: '+e.message,'error'); }
   finally{ showLoading(false); }
 }
 async function criarConta(){
   const payload={
+    id_empresa:idEmpresa,
     id_filial:Number(document.getElementById('cp_filial').value),
     id_fornecedor:Number(document.getElementById('cp_fornecedor').value),
     descricao:document.getElementById('cp_desc').value,
@@ -216,18 +270,34 @@ function abrirPagar(id,valor){
 }
 async function salvarPagamento(){
   const id=document.getElementById('pg_id').value;
-  const payload={ valor:Number(document.getElementById('pg_valor').value||0), data_pagamento: document.getElementById('pg_data').value };
+  const valorInformado=Number(document.getElementById('pg_valor').value||0);
+  const dataPagto=document.getElementById('pg_data').value;
   showLoading(true);
   try{
-    const r=await fetch(ENDPOINTS_CP.PAGAR(id),{method:'POST',headers:API_HEADERS,body:JSON.stringify(payload)});
+    const atualResp=await fetch(ENDPOINTS_CP.SHOW(id),{headers:API_HEADERS});
+    if(!atualResp.ok){ throw new Error('HTTP '+atualResp.status); }
+    const atual=await atualResp.json();
+    const pagoAtual=Number(atual.valor_pago||0);
+    const novoPago=pagoAtual + valorInformado;
+    const payload={ valor_pago: novoPago, data_pagamento: dataPagto };
+    const r=await fetch(ENDPOINTS_CP.UPDATE(id),{method:'PUT',headers:API_HEADERS,body:JSON.stringify(payload)});
     if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error('HTTP '+r.status+' '+JSON.stringify(j)); }
-    notify('Pagamento registrado!','success'); bootstrap.Modal.getInstance(document.getElementById('modalPagar')).hide(); carregarCP();
+    notify('Pagamento registrado!','success');
+    bootstrap.Modal.getInstance(document.getElementById('modalPagar')).hide();
+    carregarCP();
   }catch(e){ notify('Erro ao registrar pagamento: '+e.message,'error'); } finally{ showLoading(false); }
 }
 async function carregarEstatisticas(){
   showLoading(true);
-  try{ const r=await fetch(ENDPOINTS_CP.STATS,{headers:API_HEADERS}); const d=await r.json(); console.log('stats CP',d); notify('Estatísticas carregadas.','info'); }
-  catch(e){ notify('Erro ao carregar estatísticas: '+e.message,'error'); } finally{ showLoading(false); }
+  try{
+    const r=await fetch(`${ENDPOINTS_CP.LIST}?id_empresa=${idEmpresa}`,{headers:API_HEADERS});
+    const data=normalizarLista(await r.json());
+    const total=data.length;
+    const abertas=data.filter(i=>i.status==='aberta').length;
+    const atrasadas=data.filter(i=>i.status==='atrasada').length;
+    notify(`Total: ${total} | Abertas: ${abertas} | Atrasadas: ${atrasadas}`,'info');
+  }catch(e){ notify('Erro ao carregar estatísticas: '+e.message,'error'); }
+  finally{ showLoading(false); }
 }
 document.addEventListener('DOMContentLoaded',carregarCP);
 </script>
@@ -236,26 +306,6 @@ document.addEventListener('DOMContentLoaded',carregarCP);
 <div class="loading-overlay d-none" id="loadingOverlay">
   <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>
 </div>
-<script>
-const BASE_URL='<?= addslashes($config['api_base']) ?>';
-const idEmpresa=<?php echo $id_empresa; ?>;
-const idUsuario=<?php echo $id_usuario; ?>;
-const token='<?php echo $token; ?>';
-const API_HEADERS={
-  'Authorization': `Bearer ${token}`,
-  'Accept': 'application/json',
-  'Content-Type': 'application/json',
-  'X-ID-EMPRESA': String(idEmpresa)
-};
-function showLoading(v){document.getElementById('loadingOverlay').classList.toggle('d-none',!v)}
-function notify(msg,type='info'){
-  const n=document.createElement('div');
-  n.className=`alert alert-${type==='error'?'danger':type} alert-dismissible fade show position-fixed`;
-  n.style.cssText='top:20px;right:20px;z-index:9999;min-width:300px;';
-  n.innerHTML=`${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-  document.body.appendChild(n); setTimeout(()=>{n.remove();},5000);
-}
-</script>
     <?php if (!defined('APP_SHELL')) { include __DIR__ . '/../components/app-foot.php'; } ?>
 </body></html>
 

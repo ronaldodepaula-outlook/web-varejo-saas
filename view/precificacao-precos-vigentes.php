@@ -1243,8 +1243,8 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             }
 
             if (config.layout === 'cartaz') {
-                const escala = calcularEscalaCartaz(config);
-                const isA1 = config.width === 594 && config.height === 841;
+                const fator = Math.min(config.width / 594, config.height / 841);
+                const escala = fator;
                 const baseA1 = {
                     banner: 290,
                     title: 160,
@@ -1257,8 +1257,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     unit: 90,
                     validade: 90
                 };
-                const fator = isA1 ? 1 : Math.min(config.width / 594, config.height / 841);
-                let cartazVars = `--cartaz-scale:${escala};`;
+                let cartazVars = `--cartaz-scale:${escala.toFixed(4)};`;
                 cartazVars += `--cartaz-banner:${(baseA1.banner * fator).toFixed(2)}px;`;
                 cartazVars += `--cartaz-title:${(baseA1.title * fator).toFixed(2)}px;`;
                 cartazVars += `--cartaz-subtitle:${(baseA1.subtitle * fator).toFixed(2)}px;`;
@@ -1618,10 +1617,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         function calcularEscalaCartaz(config) {
             if (!config || config.layout !== 'cartaz') return 1;
-            const baseWidth = 297;
-            const baseHeight = 420;
-            const escala = Math.min(config.width / baseWidth, config.height / baseHeight);
-            return Math.max(0.6, Math.min(2.0, escala));
+            const baseWidth = 594;
+            const baseHeight = 841;
+            return Math.min(config.width / baseWidth, config.height / baseHeight);
         }
 
         function escapeHtml(value) {
