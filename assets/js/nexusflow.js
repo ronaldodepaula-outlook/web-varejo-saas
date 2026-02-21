@@ -31,6 +31,12 @@ const nexusFlow = {
         const mainContent = document.querySelector('.main-content');
         const overlay = this.ensureSidebarOverlay();
         const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+        const syncToggleAria = () => {
+            if (!sidebarToggle) return;
+            const expanded = sidebar ? sidebar.classList.contains('show') : false;
+            sidebarToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            sidebarToggle.setAttribute('aria-controls', 'sidebar');
+        };
 
         const openMobileMenu = () => {
             if (!sidebar) return;
@@ -41,6 +47,7 @@ const nexusFlow = {
             sidebar.classList.add('show');
             overlay.classList.add('show');
             document.body.classList.add('sidebar-open');
+            syncToggleAria();
         };
 
         const closeMobileMenu = () => {
@@ -48,10 +55,14 @@ const nexusFlow = {
             sidebar.classList.remove('show');
             overlay.classList.remove('show');
             document.body.classList.remove('sidebar-open');
+            syncToggleAria();
         };
 
         if (sidebarToggle && sidebar) {
-            sidebarToggle.addEventListener('click', () => {
+            const handleToggle = (event) => {
+                if (event) {
+                    event.preventDefault();
+                }
                 if (isMobile()) {
                     if (sidebar.classList.contains('show')) {
                         closeMobileMenu();
@@ -68,7 +79,11 @@ const nexusFlow = {
 
                 // Salvar estado da sidebar
                 localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
-            });
+            };
+
+            sidebarToggle.addEventListener('click', handleToggle);
+            sidebarToggle.addEventListener('touchstart', handleToggle, { passive: false });
+            syncToggleAria();
 
             // Restaurar estado da sidebar
             const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
@@ -83,6 +98,12 @@ const nexusFlow = {
         if (overlay) {
             overlay.addEventListener('click', closeMobileMenu);
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeMobileMenu();
+            }
+        });
 
         window.addEventListener('resize', () => {
             if (!isMobile()) {

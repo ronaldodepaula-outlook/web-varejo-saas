@@ -32,6 +32,10 @@
     box-sizing: border-box;
 }
 
+html {
+    overflow-x: hidden;
+}
+
 body {
     font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--light-gray);
@@ -271,6 +275,7 @@ body.sidebar-open {
     width: calc(100% - 260px);
     min-width: 0;
     transition: margin-left var(--transition-normal);
+    max-width: 100%;
 }
 
 .sidebar.collapsed + .main-content {
@@ -353,6 +358,8 @@ body.sidebar-open {
 /* Conteúdo */
 .content-area {
     padding: 2rem;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .page-title {
@@ -481,6 +488,8 @@ body.sidebar-open {
     border-radius: 12px;
     overflow: hidden;
     box-shadow: var(--shadow-sm);
+    width: 100%;
+    table-layout: fixed;
 }
 
 .table-custom th {
@@ -489,12 +498,16 @@ body.sidebar-open {
     font-weight: 600;
     color: var(--text-dark);
     padding: 1rem;
+    word-break: break-word;
+    white-space: normal;
 }
 
 .table-custom td {
     border: none;
     padding: 1rem;
     vertical-align: middle;
+    word-break: break-word;
+    white-space: normal;
 }
 
 .table-custom tbody tr {
@@ -504,6 +517,12 @@ body.sidebar-open {
 
 .table-custom tbody tr:hover {
     background-color: rgba(52, 152, 219, 0.05);
+}
+
+.table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Formulários */
@@ -612,6 +631,9 @@ body.sidebar-open {
 @media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
+        left: 0;
+        top: 0;
+        width: min(84vw, 280px);
     }
     
     .sidebar.show {

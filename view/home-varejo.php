@@ -33,6 +33,7 @@ $id_filial = $_SESSION['filial_id'] ?? null;
         gap: 8px;
         flex-wrap: wrap;
         align-items: center;
+        max-width: 100%;
     }
 
     .metrics-grid {
@@ -40,6 +41,7 @@ $id_filial = $_SESSION['filial_id'] ?? null;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 16px;
         margin-bottom: 24px;
+        max-width: 100%;
     }
 
     .metric-card {
@@ -50,6 +52,7 @@ $id_filial = $_SESSION['filial_id'] ?? null;
         position: relative;
         overflow: hidden;
         border: 1px solid rgba(148, 163, 184, 0.2);
+        min-width: 0;
     }
 
     .metric-card::after {
@@ -93,9 +96,10 @@ $id_filial = $_SESSION['filial_id'] ?? null;
 
     .chart-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
         gap: 18px;
         margin-bottom: 28px;
+        max-width: 100%;
     }
 
     .chart-card {
@@ -107,6 +111,7 @@ $id_filial = $_SESSION['filial_id'] ?? null;
         display: flex;
         flex-direction: column;
         position: relative;
+        min-width: 0;
     }
 
     .chart-body {
@@ -160,6 +165,7 @@ $id_filial = $_SESSION['filial_id'] ?? null;
         margin-bottom: 24px;
         box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
         border: 1px solid rgba(148, 163, 184, 0.2);
+        max-width: 100%;
     }
 
     .table-container .table-title {
@@ -201,6 +207,28 @@ $id_filial = $_SESSION['filial_id'] ?? null;
         .dashboard-header {
             flex-direction: column;
             align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .chart-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .dashboard-filters {
+            width: 100%;
+        }
+
+        .dashboard-filters .form-select,
+        .dashboard-filters .btn {
+            width: 100%;
+            min-width: 0 !important;
         }
     }
 </style>

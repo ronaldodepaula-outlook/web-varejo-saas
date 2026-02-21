@@ -252,7 +252,7 @@ function render_menu_items($items, $iconMap, $currentView) {
 }
 ?>
 
-<nav class="sidebar">
+<nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <div class="logo">
             <div class="logo-icon">N</div>
