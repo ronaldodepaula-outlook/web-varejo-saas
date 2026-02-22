@@ -131,6 +131,36 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         .status-processado { background: rgba(39, 174, 96, 0.1); color: var(--success-color); }
         .status-cancelado { background: rgba(231, 76, 60, 0.1); color: var(--danger-color); }
 
+        .atualizacao-tabs {
+            border-bottom: 1px solid #e6e6e6;
+        }
+
+        .atualizacao-tabs .nav-link {
+            color: var(--secondary-color);
+            background: #f4f6f8;
+            border: 1px solid #e1e4e8;
+            border-bottom: none;
+            margin-right: 6px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            font-weight: 600;
+        }
+
+        .atualizacao-tabs .nav-link i {
+            margin-right: 6px;
+        }
+
+        .atualizacao-tabs .nav-link:hover {
+            background: #e9eef3;
+            color: var(--secondary-color);
+        }
+
+        .atualizacao-tabs .nav-link.active {
+            background: #ffffff;
+            color: var(--primary-color);
+            border-color: #e1e4e8;
+        }
+
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -359,7 +389,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <ul class="nav nav-tabs" id="atualizacaoTabs" role="tablist">
+                    <ul class="nav nav-tabs atualizacao-tabs" id="atualizacaoTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="atualizacaoResumoTab" data-bs-toggle="tab" data-bs-target="#tabResumo" type="button" role="tab">
                                 <i class="bi bi-card-text"></i>Resumo

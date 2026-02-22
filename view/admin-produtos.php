@@ -267,17 +267,21 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         
         <!-- Área de Conteúdo -->
         <div class="content-area">
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                 <div>
                     <h1 class="page-title">Gestão de Produtos</h1>
                     <p class="page-subtitle">Cadastre e gerencie os produtos do seu catálogo</p>
                 </div>
-                <div>
-                    <button class="btn btn-primary" onclick="abrirModalProduto()">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-primary" type="button" onclick="abrirModalImportacaoProdutos()">
+                        <i class="bi bi-upload me-2"></i>Importar Produtos
+                    </button>
+                    <button class="btn btn-primary" type="button" onclick="abrirModalProduto()">
                         <i class="bi bi-plus-circle me-2"></i>Novo Produto
                     </button>
                 </div>
             </div>
+
             
             <!-- Filtros e Busca -->
             <div class="card-custom mb-4">
@@ -489,6 +493,161 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         </div>
     </div>
 
+
+    <!-- Modal de Importacao de Produtos -->
+    <div class="modal fade" id="modalImportacaoProdutos" tabindex="-1" aria-labelledby="modalImportacaoProdutosLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalImportacaoProdutosLabel">Importar Produtos</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formImportacaoProdutos">
+                        <div class="mb-3">
+                            <label class="form-label">Arquivo (xls, xlsx, csv, txt)</label>
+                            <input type="file" class="form-control" id="importProdutosArquivo" accept=".xls,.xlsx,.csv,.txt" required>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Modo</label>
+                                <select class="form-select" id="importProdutosModo">
+                                    <option value="upsert" selected>Upsert (cria/atualiza)</option>
+                                    <option value="skip">Somente novos</option>
+                                    <option value="update">Somente atualizar</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Delimitador (CSV/TXT)</label>
+                                <input type="text" class="form-control" id="importProdutosDelimiter" value=";" maxlength="3">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Resposta detalhada</label>
+                                <select class="form-select" id="importProdutosDetalhado">
+                                    <option value="true" selected>Sim</option>
+                                    <option value="false">Nao</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Unidade de medida (opcional)</label>
+                                <select class="form-select" id="importProdutosUnidade">
+                                    <option value="">Nao definir</option>
+                                    <option value="UN">UN</option>
+                                    <option value="KG">KG</option>
+                                    <option value="GR">GR</option>
+                                    <option value="LT">LT</option>
+                                    <option value="ML">ML</option>
+                                    <option value="M">M</option>
+                                    <option value="CM">CM</option>
+                                    <option value="CX">CX</option>
+                                    <option value="PC">PC</option>
+                                    <option value="SC">SC</option>
+                                    <option value="DZ">DZ</option>
+                                    <option value="PCT">PCT</option>
+                                    <option value="FD">FD</option>
+                                    <option value="KIT">KIT</option>
+                                    <option value="PAR">PAR</option>
+                                    <option value="HR">HR</option>
+                                    <option value="M2">M2</option>
+                                    <option value="M3">M3</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Categoria (ID)</label>
+                                <input type="number" class="form-control" id="importProdutosCategoria" min="1" placeholder="Opcional">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Secao (ID)</label>
+                                <input type="number" class="form-control" id="importProdutosSecao" min="1" placeholder="Opcional">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Grupo (ID)</label>
+                                <input type="number" class="form-control" id="importProdutosGrupo" min="1" placeholder="Opcional">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Subgrupo (ID)</label>
+                                <input type="number" class="form-control" id="importProdutosSubgrupo" min="1" placeholder="Opcional">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Status (opcional)</label>
+                                <select class="form-select" id="importProdutosAtivo">
+                                    <option value="">Nao definir</option>
+                                    <option value="1" selected>Ativo</option>
+                                    <option value="0">Inativo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-3">
+                            Campos opcionais (categoria/secao/grupo/subgrupo/unidade/status) aplicam default para registros importados.
+                        </small>
+                    </form>
+
+                    <button class="btn btn-outline-secondary w-100 mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#importProdutosLayouts" aria-expanded="false" aria-controls="importProdutosLayouts">
+                        <i class="bi bi-eye me-2"></i>Ver layouts de arquivo
+                    </button>
+
+                    <div class="collapse mt-3" id="importProdutosLayouts">
+                        <div class="card card-body border-0 bg-light">
+                            <div class="mb-3">
+                                <div class="fw-semibold mb-2">Layout CSV (delimitador padrao: <code>;</code>)</div>
+                                <pre class="mb-0"><code>descricao;codigo_barras;unidade_medida;preco_custo;preco_venda;ativo;id_categoria;id_secao;id_grupo;id_subgrupo
+DETERG YPE 500ML NEUTRO;7896098900208;LT;1.78;2.31;1;10;5;2;8
+CAFE TORRADO 500G;7890001112223;UN;6.50;8.90;1;10;5;2;8</code></pre>
+                            </div>
+                            <div class="mb-3">
+                                <div class="fw-semibold mb-2">Layout TXT (mesmo formato do CSV)</div>
+                                <pre class="mb-0"><code>descricao;codigo_barras;unidade_medida;preco_custo;preco_venda;ativo
+FARINHA DE TRIGO 1KG;7891110009998;KG;3.20;4.50;1</code></pre>
+                            </div>
+                            <div>
+                                <div class="fw-semibold mb-2">Layout XLS/XLSX (colunas)</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>descricao</th>
+                                                <th>codigo_barras</th>
+                                                <th>unidade_medida</th>
+                                                <th>preco_custo</th>
+                                                <th>preco_venda</th>
+                                                <th>ativo</th>
+                                                <th>id_categoria</th>
+                                                <th>id_secao</th>
+                                                <th>id_grupo</th>
+                                                <th>id_subgrupo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>DETERG YPE 500ML NEUTRO</td>
+                                                <td>7896098900208</td>
+                                                <td>LT</td>
+                                                <td>1.78</td>
+                                                <td>2.31</td>
+                                                <td>1</td>
+                                                <td>10</td>
+                                                <td>5</td>
+                                                <td>2</td>
+                                                <td>8</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-3">Campos recomendados: descricao, codigo_barras, unidade_medida, preco_custo, preco_venda, ativo.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarImportacaoProdutos" onclick="importarProdutos()">
+                        <i class="bi bi-cloud-arrow-up me-2"></i>Importar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div class="loading-overlay d-none" id="loadingOverlay">
         <div class="spinner-border text-primary" role="status">
@@ -577,6 +736,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         let produtoEditando = null;
         let modalProduto = null;
         let modalConfirmacao = null;
+        let modalImportacaoProdutos = null;
         let currentPage = 1;
         let lastPage = 1;
 
@@ -585,6 +745,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             // Inicializar modais
             modalProduto = new bootstrap.Modal(document.getElementById('modalProduto'));
             modalConfirmacao = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+            modalImportacaoProdutos = new bootstrap.Modal(document.getElementById('modalImportacaoProdutos'));
             
             // Carregar dados iniciais
             carregarProdutos();
@@ -651,6 +812,126 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 console.error('Erro no logout:', error);
                 window.location.href = 'login.php';
             }
+        }
+
+
+        function abrirModalImportacaoProdutos() {
+            const form = document.getElementById('formImportacaoProdutos');
+            if (form) {
+                form.reset();
+                document.getElementById('importProdutosModo').value = 'upsert';
+                document.getElementById('importProdutosDelimiter').value = ';';
+                document.getElementById('importProdutosDetalhado').value = 'true';
+                document.getElementById('importProdutosAtivo').value = '1';
+            }
+            modalImportacaoProdutos.show();
+        }
+
+        async function importarProdutos() {
+            const arquivoInput = document.getElementById('importProdutosArquivo');
+            const modo = document.getElementById('importProdutosModo').value;
+            const delimiter = document.getElementById('importProdutosDelimiter').value || ';';
+            const detalhado = document.getElementById('importProdutosDetalhado').value;
+            const detalhadoFlag = detalhado === 'true' || detalhado === '1';
+            const unidade = document.getElementById('importProdutosUnidade').value;
+            const idCategoria = document.getElementById('importProdutosCategoria').value;
+            const idSecao = document.getElementById('importProdutosSecao').value;
+            const idGrupo = document.getElementById('importProdutosGrupo').value;
+            const idSubgrupo = document.getElementById('importProdutosSubgrupo').value;
+            const ativo = document.getElementById('importProdutosAtivo').value;
+
+            if (!arquivoInput.files || arquivoInput.files.length === 0) {
+                mostrarNotificacao('Selecione um arquivo para importar.', 'warning');
+                return;
+            }
+
+            const arquivo = arquivoInput.files[0];
+            const formData = new FormData();
+            formData.append('modo', modo);
+            formData.append('delimiter', delimiter);
+            formData.append('detalhado', detalhadoFlag ? '1' : '0');
+            if (idCategoria) formData.append('id_categoria', idCategoria);
+            if (idSecao) formData.append('id_secao', idSecao);
+            if (idGrupo) formData.append('id_grupo', idGrupo);
+            if (idSubgrupo) formData.append('id_subgrupo', idSubgrupo);
+            if (unidade) formData.append('unidade_medida', unidade);
+            if (ativo !== '') formData.append('ativo', ativo);
+            formData.append('arquivo', arquivo);
+
+            const btn = document.getElementById('btnConfirmarImportacaoProdutos');
+            if (btn) {
+                btn.disabled = true;
+            }
+            mostrarLoading(true);
+
+            try {
+                const token = '<?php echo $token; ?>';
+                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.PRODUTOS}/importar`, {
+                    method: 'POST',
+                    headers: API_CONFIG.getHeaders(token),
+                    body: formData
+                });
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (err) {
+                    data = null;
+                }
+
+                if (!response.ok) {
+                    const message = (data && (data.message || data.error)) ? (data.message || data.error) : `Erro ${response.status}`;
+                    throw new Error(message);
+                }
+
+                modalImportacaoProdutos.hide();
+                mostrarNotificacao(obterResumoImportacaoProdutos(data), 'success');
+                carregarProdutos(currentPage);
+            } catch (error) {
+                console.error('Erro ao importar produtos:', error);
+                mostrarNotificacao('Erro ao importar produtos: ' + error.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                }
+                mostrarLoading(false);
+            }
+        }
+
+        function obterResumoImportacaoProdutos(data) {
+            if (!data) {
+                return 'Importacao concluida.';
+            }
+
+            const payload = data.data ?? data;
+            if (typeof payload === 'string') {
+                return payload;
+            }
+
+            if (payload.message) {
+                return payload.message;
+            }
+
+            const labels = {
+                inseridos: 'Inseridos',
+                atualizados: 'Atualizados',
+                ignorados: 'Ignorados',
+                erros: 'Erros',
+                total: 'Total'
+            };
+
+            const partes = [];
+            Object.keys(labels).forEach((key) => {
+                if (payload[key] !== undefined && payload[key] !== null) {
+                    partes.push(`${labels[key]}: ${payload[key]}`);
+                }
+            });
+
+            if (partes.length === 0) {
+                return 'Importacao concluida.';
+            }
+
+            return `Importacao concluida. ${partes.join(' | ')}`;
         }
 
         // ========== PRODUTOS ==========

@@ -800,6 +800,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         let capasInventario = [];
         let filiais = [];
         let produtos = [];
+        let produtosCategoria = [];
         let categorias = [];
         let capaSelecionada = null;
         let modalNovaCapaInventario = null;
@@ -843,6 +844,12 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             PRODUTOS_EMPRESA: (idEmpresa) => 
                 `${BASE_URL}/api/v1/empresas/${idEmpresa}/produtos`,
             
+            CATEGORIAS: () =>
+                `${BASE_URL}/api/v1/categorias`,
+            
+            PRODUTOS_POR_CATEGORIA: (idEmpresa, idCategoria) =>
+                `${BASE_URL}/api/v1/categorias/empresa/${idEmpresa}/produtos?id_categoria=${idCategoria}`,
+            
             getHeaders: function() {
                 return {
                     'Authorization': `Bearer ${token}`,
@@ -864,6 +871,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             carregarCapasInventario();
             carregarFiliais();
             carregarProdutos();
+            carregarCategorias();
             
             // Configurar eventos
             document.getElementById('searchInput').addEventListener('input', filtrarInventarios);
@@ -872,6 +880,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             document.getElementById('filterDataInicio').addEventListener('change', filtrarInventarios);
             document.getElementById('filterDataFim').addEventListener('change', filtrarInventarios);
             document.getElementById('tipoSelecaoProdutos').addEventListener('change', toggleCategoriaSelecao);
+            document.getElementById('categoriaProdutos').addEventListener('change', aplicarFiltroCategoriaProdutos);
             document.getElementById('selectAllProdutos').addEventListener('change', selecionarTodosProdutos);
             
             // Logoff
@@ -1176,6 +1185,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             
             // Carregar produtos
             await carregarProdutos();
+            await carregarCategorias();
             
             modalNovaCapaInventario.show();
         }
@@ -1220,7 +1230,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 // Carregar dados específicos do passo
                 if (passoAtual === 2) {
                     await carregarProdutos();
-                    carregarProdutosParaSelecao();
+                    aplicarFiltroCategoriaProdutos();
                 } else if (passoAtual === 3) {
                     gerarResumoInventario();
                 }
@@ -1500,6 +1510,20 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         }
 
         // ========== FUNÇÕES AUXILIARES ==========
+
+        function normalizarLista(data) {
+            if (!data) return [];
+            if (Array.isArray(data)) return data;
+            if (data.data && Array.isArray(data.data)) return data.data;
+            if (data.data && data.data.data && Array.isArray(data.data.data)) return data.data.data;
+            if (data.success && data.data && Array.isArray(data.data)) return data.data;
+            if (data.success && data.data && data.data.data && Array.isArray(data.data.data)) return data.data.data;
+            if (data.items && Array.isArray(data.items)) return data.items;
+            if (data.data && data.data.items && Array.isArray(data.data.items)) return data.data.items;
+            const maybeArray = Object.values(data).find(v => Array.isArray(v));
+            return maybeArray || [];
+        }
+
         async function carregarFiliais() {
             try {
                 const response = await fetch(
@@ -1526,6 +1550,42 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 
             } catch (error) {
                 console.error('Erro ao carregar filiais:', error);
+            }
+        }
+
+
+        async function carregarCategorias() {
+            try {
+                const response = await fetch(
+                    API_CONFIG.CATEGORIAS(),
+                    {
+                        method: 'GET',
+                        headers: API_CONFIG.getHeaders()
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const raw = normalizarLista(data);
+
+                categorias = raw.map(item => ({
+                    id_categoria: item.id_categoria ?? item.id ?? null,
+                    nome_categoria: item.nome_categoria ?? item.nome ?? item.descricao ?? ''
+                })).filter(item => item.id_categoria);
+
+                const select = document.getElementById('categoriaProdutos');
+                if (select) {
+                    select.innerHTML = '<option value="">Todas as categorias</option>';
+                    categorias.forEach(categoria => {
+                        select.innerHTML += `<option value="${categoria.id_categoria}">${categoria.nome_categoria}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('Erro ao carregar categorias:', error);
+                categorias = [];
             }
         }
 
@@ -1571,30 +1631,56 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             });
         }
 
-        function carregarProdutosParaSelecao() {
+
+        async function carregarProdutosPorCategoria(idCategoria) {
+            try {
+                const response = await fetch(
+                    API_CONFIG.PRODUTOS_POR_CATEGORIA(idEmpresa, idCategoria),
+                    {
+                        method: 'GET',
+                        headers: API_CONFIG.getHeaders()
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const raw = normalizarLista(data);
+                produtosCategoria = raw;
+                carregarProdutosParaSelecao(produtosCategoria);
+            } catch (error) {
+                console.error('Erro ao carregar produtos por categoria:', error);
+                produtosCategoria = [];
+                const container = document.getElementById('listaProdutosSelecao');
+                if (container) {
+                    container.innerHTML = '<div class="alert alert-danger">Erro ao carregar produtos da categoria.</div>';
+                }
+            }
+        }
+
+        function carregarProdutosParaSelecao(listaCustom) {
             const container = document.getElementById('listaProdutosSelecao');
             container.innerHTML = '';
             
-            // Validar se produtos é um array
-            if (!Array.isArray(produtos)) {
-                console.error('Erro: produtos não é um array', produtos);
+            const listaProdutos = Array.isArray(listaCustom) ? listaCustom : (Array.isArray(produtos) ? produtos : []);
+            if (!Array.isArray(listaProdutos)) {
+                console.error('Erro: produtos nao e um array', listaProdutos);
                 container.innerHTML = '<div class="alert alert-danger">Erro ao carregar produtos. Por favor, tente novamente.</div>';
                 return;
             }
 
-            if (produtos.length === 0) {
-                container.innerHTML = '<div class="alert alert-info">Nenhum produto disponível.</div>';
+            if (listaProdutos.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">Nenhum produto disponivel.</div>';
                 return;
             }
             
-            produtos.forEach(produto => {
+            listaProdutos.forEach(produto => {
                 const div = document.createElement('div');
                 div.className = 'form-check mb-2';
                 
-                // Construir a label com informações disponíveis
                 let label = `<strong>${produto.id_produto}</strong> - ${produto.descricao}`;
-                
-                // Adicionar quantidade em estoque se disponível
                 if (produto.quantidade_total !== undefined) {
                     label += `<small class="text-muted d-block">Estoque atual: ${produto.quantidade_total || 0} ${produto.unidade_medida}</small>`;
                 }
@@ -1608,20 +1694,55 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 container.appendChild(div);
             });
             
-            // Atualizar contador
             atualizarContadorProdutosSelecionados();
-            
-            // Adicionar event listeners aos checkboxes
             document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
                 checkbox.addEventListener('change', atualizarContadorProdutosSelecionados);
             });
         }
 
-        function toggleCategoriaSelecao() {
+        async function toggleCategoriaSelecao() {
             const tipoSelecao = document.getElementById('tipoSelecaoProdutos').value;
             const categoriaSelect = document.getElementById('categoriaProdutos');
             
             categoriaSelect.style.display = tipoSelecao === 'categoria' ? 'block' : 'none';
+
+            if (tipoSelecao === 'categoria') {
+                if (!Array.isArray(categorias) || categorias.length === 0) {
+                    await carregarCategorias();
+                }
+                if (categoriaSelect) {
+                    categoriaSelect.value = '';
+                }
+            }
+
+            aplicarFiltroCategoriaProdutos();
+        }
+
+        function aplicarFiltroCategoriaProdutos() {
+            const tipoSelecao = document.getElementById('tipoSelecaoProdutos').value;
+            const categoriaSelect = document.getElementById('categoriaProdutos');
+            const categoriaId = categoriaSelect ? categoriaSelect.value : '';
+
+            if (tipoSelecao !== 'categoria') {
+                carregarProdutosParaSelecao(produtos);
+                return;
+            }
+
+            if (!categoriaId) {
+                const container = document.getElementById('listaProdutosSelecao');
+                if (container) {
+                    container.innerHTML = '<div class="alert alert-info">Selecione uma categoria para listar os produtos.</div>';
+                }
+                document.getElementById('contadorProdutosSelecionados').textContent = '0';
+                return;
+            }
+
+            carregarProdutosPorCategoria(categoriaId);
+        }
+
+        function obterIdCategoriaProduto(produto) {
+            if (!produto) return null;
+            return produto.id_categoria ?? produto.categoria_id ?? produto.id_categoria_produto ?? produto.idCategoria ?? produto.categoria?.id_categoria ?? produto.categoria?.id ?? null;
         }
 
         function selecionarTodosProdutos() {

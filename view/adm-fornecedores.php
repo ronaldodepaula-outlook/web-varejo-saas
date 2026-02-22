@@ -272,14 +272,19 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         </header>
 
         <!-- Titulo e Acoes -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <div>
                 <h2 class="page-title">Gestao de Fornecedores</h2>
                 <p class="page-subtitle">Cadastre e gerencie seus fornecedores</p>
             </div>
-            <button class="btn btn-primary" onclick="abrirModalFornecedor()">
-                <i class="bi bi-plus-lg me-2"></i>Novo Fornecedor
-            </button>
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-primary" type="button" onclick="abrirModalImportacao()">
+                    <i class="bi bi-upload me-2"></i>Importar Fornecedores
+                </button>
+                <button class="btn btn-primary" type="button" onclick="abrirModalFornecedor()">
+                    <i class="bi bi-plus-lg me-2"></i>Novo Fornecedor
+                </button>
+            </div>
         </div>
 
         <!-- Resumo -->
@@ -436,6 +441,104 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         </div>
     </div>
 
+    <!-- Modal Importacao -->
+    <div class="modal fade" id="modalImportacao" tabindex="-1" aria-labelledby="modalImportacaoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalImportacaoLabel">Importar Fornecedores</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formImportacao">
+                        <div class="mb-3">
+                            <label class="form-label">Arquivo (xls, xlsx, csv, txt)</label>
+                            <input type="file" class="form-control" id="importArquivo" accept=".xls,.xlsx,.csv,.txt" required>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Modo</label>
+                                <select class="form-select" id="importModo">
+                                    <option value="upsert" selected>Upsert (cria/atualiza)</option>
+                                    <option value="skip">Somente novos</option>
+                                    <option value="update">Somente atualizar</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Delimitador (CSV/TXT)</label>
+                                <input type="text" class="form-control" id="importDelimiter" value=";" maxlength="3">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Resposta detalhada</label>
+                                <select class="form-select" id="importDetalhado">
+                                    <option value="true" selected>Sim</option>
+                                    <option value="false">Nao</option>
+                                </select>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-3">
+                            A importacao utiliza o ID da empresa atual e respeita o modo selecionado.
+                        </small>
+                    </form>
+
+                    <button class="btn btn-outline-secondary w-100 mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#importLayouts" aria-expanded="false" aria-controls="importLayouts">
+                        <i class="bi bi-eye me-2"></i>Ver layouts de arquivo
+                    </button>
+
+                    <div class="collapse mt-3" id="importLayouts">
+                        <div class="card card-body border-0 bg-light">
+                            <div class="mb-3">
+                                <div class="fw-semibold mb-2">Layout CSV (delimitador padrão: <code>;</code>)</div>
+                                <pre class="mb-0"><code>razao_social;nome_fantasia;cnpj;cidade;estado;status
+PAINE PRODUCAO E COMERCIO DE PAES ARTESANAIS LTDA;PAINE PRODUCAO;31006488000198;Fortaleza;CE;ativo
+Fornecedor Exemplo;Fornecedor Exemplo;12345678000199;Sao Paulo;SP;inativo</code></pre>
+                            </div>
+                            <div class="mb-3">
+                                <div class="fw-semibold mb-2">Layout TXT (mesmo formato do CSV)</div>
+                                <pre class="mb-0"><code>razao_social;nome_fantasia;cnpj;cidade;estado;status
+Fornecedor 01;Fornecedor 01;00998877665544;Recife;PE;ativo</code></pre>
+                            </div>
+                            <div>
+                                <div class="fw-semibold mb-2">Layout XLS/XLSX (colunas)</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>razao_social</th>
+                                                <th>nome_fantasia</th>
+                                                <th>cnpj</th>
+                                                <th>cidade</th>
+                                                <th>estado</th>
+                                                <th>status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>PAINE PRODUCAO E COMERCIO DE PAES ARTESANAIS LTDA</td>
+                                                <td>PAINE PRODUCAO</td>
+                                                <td>31006488000198</td>
+                                                <td>Fortaleza</td>
+                                                <td>CE</td>
+                                                <td>ativo</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-3">Campos recomendados: razao_social, nome_fantasia, cnpj, cidade, estado, status.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarImportacao" onclick="importarFornecedores()">
+                        <i class="bi bi-cloud-arrow-up me-2"></i>Importar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div class="loading-overlay d-none" id="loadingOverlay">
         <div class="spinner-border text-primary" role="status">
@@ -451,6 +554,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         let fornecedorEditando = null;
         let modalFornecedor = null;
         let modalConfirmacao = null;
+        let modalImportacao = null;
         let currentPage = 1;
         let lastPage = 1;
 
@@ -458,6 +562,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             BASE_URL: BASE_URL,
             FORNECEDORES: '/api/v1/fornecedores',
             FORNECEDORES_EMPRESA: '/api/v1/fornecedores/empresa',
+            IMPORTAR: '/api/v1/fornecedores/importar',
             LOGOUT: '/api/v1/logout',
 
             getHeaders: function() {
@@ -489,6 +594,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         document.addEventListener('DOMContentLoaded', function() {
             modalFornecedor = new bootstrap.Modal(document.getElementById('modalFornecedor'));
             modalConfirmacao = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+            modalImportacao = new bootstrap.Modal(document.getElementById('modalImportacao'));
 
             carregarFornecedores();
 
@@ -515,6 +621,111 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             } finally {
                 window.location.href = 'login.php';
             }
+        }
+
+        function abrirModalImportacao() {
+            const form = document.getElementById('formImportacao');
+            if (form) {
+                form.reset();
+                document.getElementById('importModo').value = 'upsert';
+                document.getElementById('importDelimiter').value = ';';
+                document.getElementById('importDetalhado').value = 'true';
+            }
+            modalImportacao.show();
+        }
+
+        async function importarFornecedores() {
+            const arquivoInput = document.getElementById('importArquivo');
+            const modo = document.getElementById('importModo').value;
+            const delimiter = document.getElementById('importDelimiter').value || ';';
+            const detalhado = document.getElementById('importDetalhado').value;
+
+            if (!arquivoInput.files || arquivoInput.files.length === 0) {
+                mostrarNotificacao('Selecione um arquivo para importar.', 'warning');
+                return;
+            }
+
+            const arquivo = arquivoInput.files[0];
+            const formData = new FormData();
+            formData.append('id_empresa', String(idEmpresa));
+            formData.append('modo', modo);
+            formData.append('delimiter', delimiter);
+            formData.append('detalhado', detalhado);
+            formData.append('arquivo', arquivo);
+
+            const btn = document.getElementById('btnConfirmarImportacao');
+            if (btn) {
+                btn.disabled = true;
+            }
+            mostrarLoading(true);
+
+            try {
+                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.IMPORTAR}`, {
+                    method: 'POST',
+                    headers: API_CONFIG.getHeaders(),
+                    body: formData
+                });
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (err) {
+                    data = null;
+                }
+
+                if (!response.ok) {
+                    const message = (data && (data.message || data.error)) ? (data.message || data.error) : `Erro ${response.status}`;
+                    throw new Error(message);
+                }
+
+                modalImportacao.hide();
+                mostrarNotificacao(obterResumoImportacao(data), 'success');
+                carregarFornecedores(currentPage);
+            } catch (error) {
+                console.error('Erro ao importar fornecedores:', error);
+                mostrarNotificacao('Erro ao importar fornecedores: ' + error.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                }
+                mostrarLoading(false);
+            }
+        }
+
+        function obterResumoImportacao(data) {
+            if (!data) {
+                return 'Importacao concluida.';
+            }
+
+            const payload = data.data ?? data;
+            if (typeof payload === 'string') {
+                return payload;
+            }
+
+            if (payload.message) {
+                return payload.message;
+            }
+
+            const labels = {
+                inseridos: 'Inseridos',
+                atualizados: 'Atualizados',
+                ignorados: 'Ignorados',
+                erros: 'Erros',
+                total: 'Total'
+            };
+
+            const partes = [];
+            Object.keys(labels).forEach((key) => {
+                if (payload[key] !== undefined && payload[key] !== null) {
+                    partes.push(`${labels[key]}: ${payload[key]}`);
+                }
+            });
+
+            if (partes.length === 0) {
+                return 'Importacao concluida.';
+            }
+
+            return `Importacao concluida. ${partes.join(' | ')}`;
         }
 
         async function carregarFornecedores(page = 1) {
