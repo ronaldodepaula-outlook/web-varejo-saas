@@ -820,8 +820,8 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             
             // Endpoints para Produtos
             // Usar rota correta: /api/v1/produtos/empresa/{idEmpresa}
-            PRODUTOS_LISTAR: () => 
-                `${BASE_URL}/api/v1/produtos/empresa/${idEmpresa}`,
+            PRODUTOS_LISTAR: () =>
+                `${BASE_URL}/api/v1/empresas/${idEmpresa}/produtos`,
             
             // Endpoints para Filiais
             FILIAIS_LISTAR: () =>
@@ -891,6 +891,136 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 })) : []
             };
         }
+        function normalizarListaPaginada(data) {
+            const items = Array.isArray(data)
+                ? data
+                : (data && Array.isArray(data.data)) ? data.data
+                : (data && data.data && Array.isArray(data.data.data)) ? data.data.data
+                : (data && Array.isArray(data.produtos)) ? data.produtos
+                : (data && data.data && Array.isArray(data.data.items)) ? data.data.items
+                : [];
+
+            const meta = {
+                paginated: false,
+                current_page: null,
+                last_page: null,
+                next_page_url: null,
+                per_page: null,
+                total: null
+            };
+
+            if (data && typeof data === 'object' && !Array.isArray(data)) {
+                const metaSource = data.meta && typeof data.meta === 'object'
+                    ? data.meta
+                    : (data.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : data);
+
+                if (metaSource) {
+                    meta.paginated = !!(metaSource.current_page || metaSource.last_page || metaSource.next_page_url || metaSource.per_page || metaSource.total);
+                    meta.current_page = metaSource.current_page ?? null;
+                    meta.last_page = metaSource.last_page ?? null;
+                    meta.next_page_url = metaSource.next_page_url ?? null;
+                    meta.per_page = metaSource.per_page ?? null;
+                    meta.total = metaSource.total ?? null;
+                }
+            }
+
+            return { items, meta };
+        }
+
+        function buildPagedUrl(baseUrl, page, perPage) {
+            try {
+                const url = new URL(baseUrl);
+                if (page) url.searchParams.set('page', page);
+                if (perPage && !url.searchParams.has('per_page')) url.searchParams.set('per_page', String(perPage));
+                return url.toString();
+            } catch (err) {
+                const separator = baseUrl.includes('?') ? '&' : '?';
+                let extra = '';
+                if (page) {
+                    extra += `${separator}page=${page}`;
+                }
+                if (perPage) {
+                    const sep = extra ? '&' : separator;
+                    extra += `${sep}per_page=${perPage}`;
+                }
+                return `${baseUrl}${extra}`;
+            }
+        }
+
+        async function carregarTodasPaginas(baseUrl, perPage = 200) {
+            const todos = [];
+            let page = 1;
+            let nextUrl = null;
+            let guard = 0;
+            const maxPages = 50;
+
+            while (guard < maxPages) {
+                guard += 1;
+                const url = nextUrl ? nextUrl : buildPagedUrl(baseUrl, page, perPage);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: API_CONFIG.getHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const { items, meta } = normalizarListaPaginada(data);
+
+                if (!Array.isArray(items) || items.length == 0) {
+                    break;
+                }
+
+                todos.push(...items);
+
+                if (!meta.paginated) {
+                    break;
+                }
+
+                if (meta.next_page_url) {
+                    nextUrl = meta.next_page_url;
+                    page = meta.current_page ? meta.current_page + 1 : page + 1;
+                    continue;
+                }
+
+                if (meta.last_page && meta.current_page && meta.current_page < meta.last_page) {
+                    nextUrl = null;
+                    page = meta.current_page + 1;
+                    continue;
+                }
+
+                if (meta.last_page && !meta.current_page && page < meta.last_page) {
+                    nextUrl = null;
+                    page += 1;
+                    continue;
+                }
+
+                if (meta.per_page && items.length < meta.per_page) {
+                    break;
+                }
+
+                nextUrl = null;
+                page += 1;
+            }
+
+            return todos;
+        }
+
+        function normalizarProduto(p) {
+            return {
+                id_produto: p.id_produto ?? p.id ?? null,
+                descricao: p.descricao ?? p.nome ?? p.name ?? '',
+                codigo_barras: p.codigo_barras ?? p.codigo ?? p.code ?? '',
+                categoria: (typeof p.categoria === 'string') ? p.categoria : (p.categoria && (p.categoria.nome || p.categoria.descricao)) ?? '',
+                quantidade_total: p.quantidade_total ?? p.quantidade ?? p.stock ?? p.estoque ?? 0,
+                preco_venda: parseFloat(p.preco_venda ?? p.preco ?? p.price ?? 0) || 0,
+                preco_custo: parseFloat(p.preco_custo ?? p.custo ?? 0) || 0,
+                _raw: p
+            };
+        }
+
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
@@ -1082,8 +1212,11 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             modalBuscarCliente.show();
         }
 
-        function abrirModalAdicionarItem() {
+        async function abrirModalAdicionarItem() {
             document.getElementById('searchProduto').value = '';
+            if (!Array.isArray(produtos) || produtos.length === 0) {
+                await carregarProdutos();
+            }
             filtrarProdutosBusca();
             modalAdicionarItem.show();
         }
@@ -1658,54 +1791,22 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         async function carregarProdutos() {
             try {
-                const response = await fetch(
-                    API_CONFIG.PRODUTOS_LISTAR(),
-                    {
-                        method: 'GET',
-                        headers: API_CONFIG.getHeaders()
-                    }
-                );
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    // Normalizar formatos variados de resposta da API.
-                    // Suporta formas:
-                    // 1) Array direto: [ { ... }, ... ]
-                    // 2) { data: [ ... ] }
-                    // 3) { data: { data: [ ... ], ... } } (paginado)
-                    // 4) { produtos: [ ... ] }
-                    let raw = [];
-                    if (Array.isArray(data)) {
-                        raw = data;
-                    } else if (data && Array.isArray(data.data)) {
-                        // { data: [ ... ] }
-                        raw = data.data;
-                    } else if (data && data.data && Array.isArray(data.data.data)) {
-                        // { data: { data: [ ... ], ... } } (paginado)
-                        raw = data.data.data;
-                    } else if (data && Array.isArray(data.produtos)) {
-                        raw = data.produtos;
-                    } else if (data && data.data && data.data.items && Array.isArray(data.data.items)) {
-                        // suporte adicional para envelope diferente
-                        raw = data.data.items;
-                    } else {
-                        raw = [];
-                    }
-
-                    // Mapear para formato consistente usado pelo front-end
-                    produtos = raw.map(p => ({
-                        id_produto: p.id_produto ?? p.id ?? null,
-                        descricao: p.descricao ?? p.nome ?? p.name ?? '',
-                        codigo_barras: p.codigo_barras ?? p.codigo ?? p.code ?? '',
-                        categoria: (typeof p.categoria === 'string') ? p.categoria : (p.categoria && (p.categoria.nome || p.categoria.descricao)) ?? '',
-                        quantidade_total: p.quantidade_total ?? p.quantidade ?? p.stock ?? p.estoque ?? 0,
-                        preco_venda: parseFloat(p.preco_venda ?? p.preco ?? p.price ?? 0) || 0,
-                        preco_custo: parseFloat(p.preco_custo ?? p.custo ?? 0) || 0,
-                        _raw: p
-                    }));
+                let raw = [];
+                try {
+                    raw = await carregarTodasPaginas(API_CONFIG.PRODUTOS_LISTAR());
+                } catch (err) {
+                    console.warn('Falha na rota principal de produtos, tentando alternativa.', err);
                 }
+
+                if (!Array.isArray(raw) || raw.length === 0) {
+                    const altUrl = `${BASE_URL}/api/v1/produtos/empresa/${idEmpresa}`;
+                    raw = await carregarTodasPaginas(altUrl);
+                }
+
+                produtos = Array.isArray(raw) ? raw.map(normalizarProduto) : [];
             } catch (error) {
                 console.error('Erro ao carregar produtos:', error);
+                produtos = [];
             }
         }
 
@@ -1787,6 +1888,11 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             const termo = document.getElementById('searchProduto').value.toLowerCase();
             const tbody = document.getElementById('listaProdutosBusca');
             
+            if (!Array.isArray(produtos) || produtos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhum produto carregado</td></tr>';
+                return;
+            }
+
             const produtosFiltrados = produtos.filter(produto => 
                 produto.descricao.toLowerCase().includes(termo) ||
                 (produto.codigo_barras && produto.codigo_barras.includes(termo)) ||
