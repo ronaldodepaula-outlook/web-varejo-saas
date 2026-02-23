@@ -635,6 +635,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                         <table class="table table-hover">
                             <thead>
                                 <tr>
+                                    <th style="width: 36px;">
+                                        <input class="form-check-input" type="checkbox" id="selectAllProdutosModal" aria-label="Selecionar todos os produtos" onchange="toggleSelecionarTodosProdutos(this)">
+                                    </th>
                                     <th>Produto</th>
                                     <th>Código</th>
                                     <th>Estoque</th>
@@ -649,7 +652,13 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <div class="me-auto text-muted small">
+                        <span id="contadorProdutosSelecionadosModal">0</span> selecionado(s)
+                    </div>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-success" id="btnAdicionarSelecionadosModal" onclick="adicionarItensSelecionados()" disabled>
+                        <i class="bi bi-check2-circle me-1"></i>Adicionar selecionados
+                    </button>
                 </div>
             </div>
         </div>
@@ -792,6 +801,8 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         let modalBuscarCliente = null;
         let modalAdicionarItem = null;
         let modalDetalhesVenda = null;
+        let produtosSelecionados = new Set();
+        let produtosFiltradosAtual = [];
 
         // Configuração da API
         const API_CONFIG = {
@@ -1217,7 +1228,10 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             if (!Array.isArray(produtos) || produtos.length === 0) {
                 await carregarProdutos();
             }
+            produtosSelecionados.clear();
+            produtosFiltradosAtual = [];
             filtrarProdutosBusca();
+            atualizarSelecaoProdutosModal();
             modalAdicionarItem.show();
         }
 
@@ -1334,7 +1348,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             document.getElementById('clienteNaoSelecionadoInfo').classList.remove('d-none');
         }
 
-        function adicionarItemVenda(produto) {
+        function adicionarItemVenda(produto, fecharModal = true) {
             const itemExistente = itensVenda.find(item => item.id_produto === produto.id_produto);
             
             if (itemExistente) {
@@ -1351,7 +1365,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             }
             
             atualizarListaItens();
-            modalAdicionarItem.hide();
+            if (fecharModal && modalAdicionarItem) {
+                modalAdicionarItem.hide();
+            }
         }
 
         function atualizarListaItens() {
@@ -1889,7 +1905,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             const tbody = document.getElementById('listaProdutosBusca');
             
             if (!Array.isArray(produtos) || produtos.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhum produto carregado</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum produto carregado</td></tr>';
+                produtosFiltradosAtual = [];
+                atualizarSelecaoProdutosModal();
                 return;
             }
 
@@ -1898,14 +1916,19 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                 (produto.codigo_barras && produto.codigo_barras.includes(termo)) ||
                 (produto.categoria && produto.categoria.toLowerCase().includes(termo))
             );
+            produtosFiltradosAtual = produtosFiltrados;
             
             if (produtosFiltrados.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhum produto encontrado</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum produto encontrado</td></tr>';
+                atualizarSelecaoProdutosModal();
                 return;
             }
             
             tbody.innerHTML = produtosFiltrados.map(produto => `
                 <tr>
+                    <td>
+                        <input class="form-check-input produto-select" type="checkbox" data-id="${produto.id_produto}" ${produtosSelecionados.has(String(produto.id_produto)) ? 'checked' : ''} onchange="toggleProdutoSelecionado(this)">
+                    </td>
                     <td>
                         <strong>${produto.descricao}</strong>
                         ${produto.categoria ? `<br><small class="text-muted">${produto.categoria}</small>` : ''}
@@ -1920,6 +1943,82 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     </td>
                 </tr>
             `).join('');
+            atualizarSelecaoProdutosModal();
+        }
+
+        function toggleProdutoSelecionado(checkbox) {
+            const id = checkbox?.dataset?.id;
+            if (!id) return;
+            if (checkbox.checked) {
+                produtosSelecionados.add(String(id));
+            } else {
+                produtosSelecionados.delete(String(id));
+            }
+            atualizarSelecaoProdutosModal();
+        }
+
+        function toggleSelecionarTodosProdutos(checkbox) {
+            const marcar = !!checkbox.checked;
+            if (!Array.isArray(produtosFiltradosAtual)) {
+                produtosFiltradosAtual = [];
+            }
+            produtosFiltradosAtual.forEach(produto => {
+                const id = String(produto.id_produto);
+                if (marcar) {
+                    produtosSelecionados.add(id);
+                } else {
+                    produtosSelecionados.delete(id);
+                }
+            });
+            document.querySelectorAll('#listaProdutosBusca .produto-select').forEach(cb => {
+                cb.checked = marcar;
+            });
+            atualizarSelecaoProdutosModal();
+        }
+
+        function atualizarSelecaoProdutosModal() {
+            const contador = document.getElementById('contadorProdutosSelecionadosModal');
+            const botao = document.getElementById('btnAdicionarSelecionadosModal');
+            const selectAll = document.getElementById('selectAllProdutosModal');
+
+            const totalSelecionados = produtosSelecionados.size;
+            if (contador) contador.textContent = totalSelecionados;
+            if (botao) botao.disabled = totalSelecionados === 0;
+
+            if (!selectAll) return;
+            if (!Array.isArray(produtosFiltradosAtual) || produtosFiltradosAtual.length === 0) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+                return;
+            }
+            let selecionadosVisiveis = 0;
+            produtosFiltradosAtual.forEach(produto => {
+                if (produtosSelecionados.has(String(produto.id_produto))) {
+                    selecionadosVisiveis += 1;
+                }
+            });
+            selectAll.checked = selecionadosVisiveis > 0 && selecionadosVisiveis === produtosFiltradosAtual.length;
+            selectAll.indeterminate = selecionadosVisiveis > 0 && selecionadosVisiveis < produtosFiltradosAtual.length;
+        }
+
+        function adicionarItensSelecionados() {
+            if (produtosSelecionados.size === 0) {
+                mostrarNotificacao('Selecione pelo menos um produto.', 'warning');
+                return;
+            }
+            const idsSelecionados = new Set([...produtosSelecionados].map(id => String(id)));
+            const selecionados = produtos.filter(produto => idsSelecionados.has(String(produto.id_produto)));
+            if (selecionados.length === 0) {
+                mostrarNotificacao('Nenhum produto selecionado encontrado.', 'warning');
+                return;
+            }
+            selecionados.forEach(produto => adicionarItemVenda(produto, false));
+            produtosSelecionados.clear();
+            filtrarProdutosBusca();
+            atualizarSelecaoProdutosModal();
+            if (modalAdicionarItem) {
+                modalAdicionarItem.hide();
+            }
         }
 
         function filtrarVendas() {
