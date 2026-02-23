@@ -1524,6 +1524,119 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
             return maybeArray || [];
         }
 
+        function normalizarListaPaginada(data) {
+            const items = normalizarLista(data);
+            const meta = {
+                paginated: false,
+                current_page: null,
+                last_page: null,
+                next_page_url: null,
+                per_page: null,
+                total: null
+            };
+
+            if (!data || typeof data !== 'object') {
+                return { items, meta };
+            }
+
+            const metaSource = data.meta && typeof data.meta === 'object'
+                ? data.meta
+                : (data.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : data);
+
+            if (metaSource) {
+                meta.paginated = !!(metaSource.current_page || metaSource.last_page || metaSource.next_page_url || metaSource.per_page || metaSource.total);
+                meta.current_page = metaSource.current_page ?? null;
+                meta.last_page = metaSource.last_page ?? null;
+                meta.next_page_url = metaSource.next_page_url ?? null;
+                meta.per_page = metaSource.per_page ?? null;
+                meta.total = metaSource.total ?? null;
+            }
+
+            return { items, meta };
+        }
+
+        function buildPagedUrl(baseUrl, page, perPage) {
+            try {
+                const url = new URL(baseUrl);
+                if (page) url.searchParams.set('page', page);
+                if (perPage && !url.searchParams.has('per_page')) url.searchParams.set('per_page', String(perPage));
+                return url.toString();
+            } catch (err) {
+                const separator = baseUrl.includes('?') ? '&' : '?';
+                let extra = '';
+                if (page) {
+                    extra += `${separator}page=${page}`;
+                }
+                if (perPage) {
+                    const sep = extra ? '&' : separator;
+                    extra += `${sep}per_page=${perPage}`;
+                }
+                return `${baseUrl}${extra}`;
+            }
+        }
+
+        async function carregarTodasPaginas(baseUrl, perPage = 200) {
+            const todos = [];
+            let page = 1;
+            let nextUrl = null;
+            let guard = 0;
+            const maxPages = 50;
+
+            while (guard < maxPages) {
+                guard += 1;
+                const url = nextUrl ? nextUrl : buildPagedUrl(baseUrl, page, perPage);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: API_CONFIG.getHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const { items, meta } = normalizarListaPaginada(data);
+
+                if (!Array.isArray(items) || items.length === 0) {
+                    break;
+                }
+
+                todos.push(...items);
+
+                if (!meta.paginated) {
+                    break;
+                }
+
+                if (meta.next_page_url) {
+                    nextUrl = meta.next_page_url;
+                    page = meta.current_page ? meta.current_page + 1 : page + 1;
+                    continue;
+                }
+
+                if (meta.last_page && meta.current_page && meta.current_page < meta.last_page) {
+                    nextUrl = null;
+                    page = meta.current_page + 1;
+                    continue;
+                }
+
+                if (meta.last_page && !meta.current_page && page < meta.last_page) {
+                    nextUrl = null;
+                    page += 1;
+                    continue;
+                }
+
+                if (meta.per_page && items.length < meta.per_page) {
+                    break;
+                }
+
+                nextUrl = null;
+                page += 1;
+            }
+
+            return todos;
+        }
+
+
         async function carregarFiliais() {
             try {
                 const response = await fetch(
@@ -1591,31 +1704,7 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         async function carregarProdutos() {
             try {
-                const response = await fetch(
-                    API_CONFIG.PRODUTOS_EMPRESA(idEmpresa),
-                    {
-                        method: 'GET',
-                        headers: API_CONFIG.getHeaders()
-                    }
-                );
-                
-                if (!response.ok) {
-                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                
-                // A API retorna uma estrutura paginada: { data: { data: [...], current_page, etc } }
-                // Precisamos extrair o array de dentro dessa estrutura
-                if (data.data && data.data.data && Array.isArray(data.data.data)) {
-                    produtos = data.data.data;
-                } else if (data.data && Array.isArray(data.data)) {
-                    produtos = data.data;
-                } else {
-                    console.warn('Estrutura de resposta inesperada:', data);
-                    produtos = [];
-                }
-                
+                produtos = await carregarTodasPaginas(API_CONFIG.PRODUTOS_EMPRESA(idEmpresa));
             } catch (error) {
                 console.error('Erro ao carregar produtos:', error);
                 produtos = [];
@@ -1634,20 +1723,8 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
         async function carregarProdutosPorCategoria(idCategoria) {
             try {
-                const response = await fetch(
-                    API_CONFIG.PRODUTOS_POR_CATEGORIA(idEmpresa, idCategoria),
-                    {
-                        method: 'GET',
-                        headers: API_CONFIG.getHeaders()
-                    }
-                );
-
-                if (!response.ok) {
-                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                const raw = normalizarLista(data);
+                const baseUrl = API_CONFIG.PRODUTOS_POR_CATEGORIA(idEmpresa, idCategoria);
+                const raw = await carregarTodasPaginas(baseUrl);
                 produtosCategoria = raw;
                 carregarProdutosParaSelecao(produtosCategoria);
             } catch (error) {
