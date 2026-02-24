@@ -15,11 +15,13 @@ if ($id_usuario === null && is_array($usuario)) {
     $id_usuario = $usuario['id_usuario'] ?? ($usuario['id'] ?? null);
 }
 $empresa = $_SESSION['empresa'];
-$id_empresa = $_SESSION['id_empresa'];
+$id_empresa = $_SESSION['id_empresa'] ?? ($_SESSION['empresa_id'] ?? ($empresa['id_empresa'] ?? null));
 $licenca = $_SESSION['licenca'];
 $token = $_SESSION['authToken'];
 $segmento = $_SESSION['segmento'] ?? '';
 $isVarejo = strtolower((string)$segmento) === 'varejo';
+$perfilUsuario = $_SESSION['userRole'] ?? ($usuario['perfil'] ?? ($usuario['role'] ?? ''));
+$isAdminEmpresa = $perfilUsuario === 'admin_empresa';
 
 // Extrair nome do usuário de forma segura
 $nomeUsuario = '';
@@ -141,8 +143,19 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         .status-ativa { background: rgba(39, 174, 96, 0.1); color: var(--success-color); }
         .status-pendente { background: rgba(243, 156, 18, 0.1); color: var(--warning-color); }
         .status-inativa { background: rgba(231, 76, 60, 0.1); color: var(--danger-color); }
+        .status-ativo { background: rgba(39, 174, 96, 0.1); color: var(--success-color); }
+        .status-inativo { background: rgba(231, 76, 60, 0.1); color: var(--danger-color); }
         
         .segmento-badge {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(52, 152, 219, 0.1);
+            color: var(--primary-color);
+        }
+
+        .perfil-badge {
             padding: 4px 8px;
             border-radius: 20px;
             font-size: 0.75rem;
@@ -269,7 +282,12 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                     <h1 class="page-title">Gestão de Empresas</h1>
                     <p class="page-subtitle">Cadastre e gerencie as empresas do sistema</p>
                 </div>
-                <div>
+                <div class="d-flex gap-2">
+                    <?php if ($isAdminEmpresa): ?>
+                        <a class="btn btn-outline-primary" href="?view=admin-gestao-permissoes&id_empresa=<?php echo urlencode((string)$id_empresa); ?>">
+                            <i class="bi bi-shield-lock me-2"></i>Administrar Usuários
+                        </a>
+                    <?php endif; ?>
                     <button class="btn btn-primary" onclick="abrirModalEmpresa()" <?php echo $isVarejo ? 'disabled aria-disabled="true" title="Somente administradores podem cadastrar empresas"' : ''; ?>>
                         <i class="bi bi-plus-circle me-2"></i>Nova Empresa
                     </button>
@@ -339,6 +357,80 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                             <tbody id="tbodyEmpresas">
                                 <tr>
                                     <td colspan="7" class="text-center text-muted">Carregando empresas...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gestão de Usuários da Empresa -->
+            <div class="card-custom mt-4" id="usuariosEmpresaSection">
+                <div class="card-header-custom d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">Gestão de Usuários</h5>
+                        <small class="text-muted">Cadastre e gerencie os usuários da empresa selecionada</small>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <div id="usuariosEmpresaSelectWrapper">
+                            <select class="form-select form-select-sm" id="usuariosEmpresaSelect" style="min-width: 220px;"></select>
+                        </div>
+                        <button class="btn btn-sm btn-primary" onclick="usuariosAbrirModalUsuario()">
+                            <i class="bi bi-person-plus me-1"></i>Novo Usuário
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <div class="search-box">
+                                <i class="bi bi-search"></i>
+                                <input type="text" class="form-control" id="usuariosSearchInput" placeholder="Buscar por nome ou email...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="usuariosFilterPerfil">
+                                <option value="">Todos os perfis</option>
+                                <option value="super_admin">Super Admin</option>
+                                <option value="admin_empresa">Admin Empresa</option>
+                                <option value="usuario">Usuário</option>
+                                <option value="manager">Gestor</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="usuariosFilterStatus">
+                                <option value="">Todos os status</option>
+                                <option value="ativo">Ativo</option>
+                                <option value="inativo">Inativo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted" id="usuariosTotal">Carregando...</span>
+                        <button class="btn btn-sm btn-outline-primary" onclick="usuariosCarregarUsuarios()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="usuariosTabela">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Perfil</th>
+                                    <th>Status</th>
+                                    <th>Termos</th>
+                                    <th>Newsletter</th>
+                                    <th>Data Cadastro</th>
+                                    <th width="120">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usuariosTbody">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">Selecione uma empresa.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -508,6 +600,99 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         </div>
     </div>
 
+    <!-- Modal para Adicionar/Editar Usuário -->
+    <div class="modal fade" id="modalUsuarioEmpresa" tabindex="-1" aria-labelledby="modalUsuarioEmpresaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalUsuarioEmpresaLabel">Novo Usuário</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="usuariosForm">
+                        <input type="hidden" id="usuariosUsuarioId">
+                        <input type="hidden" id="usuariosEmpresaId">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nome Completo *</label>
+                                <input type="text" class="form-control" id="usuariosNome" required>
+                                <div class="invalid-feedback">Informe o nome completo.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="usuariosEmail" required>
+                                <div class="invalid-feedback">Informe um email válido.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" id="usuariosLabelSenha">Senha *</label>
+                                <input type="password" class="form-control" id="usuariosSenha" minlength="6">
+                                <div class="invalid-feedback">A senha deve ter pelo menos 6 caracteres.</div>
+                                <small class="form-text text-muted" id="usuariosTextoAjudaSenha">Mínimo 6 caracteres</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Perfil *</label>
+                                <select class="form-select" id="usuariosPerfil" required>
+                                    <option value="">Selecione o perfil</option>
+                                    <option value="super_admin">Super Admin</option>
+                                    <option value="admin_empresa">Admin Empresa</option>
+                                    <option value="usuario">Usuário</option>
+                                    <option value="manager">Gestor</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione o perfil.</div>
+                            </div>
+                            <div class="col-md-12">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="usuariosAtivo" checked>
+                                            <label class="form-check-label" for="usuariosAtivo">Usuário Ativo</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="usuariosAceitouTermos">
+                                            <label class="form-check-label" for="usuariosAceitouTermos">Aceitou Termos</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="usuariosNewsletter">
+                                            <label class="form-check-label" for="usuariosNewsletter">Newsletter</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="usuariosSalvarUsuario()">Salvar Usuário</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão de Usuário -->
+    <div class="modal fade" id="modalUsuariosConfirmacao" tabindex="-1" aria-labelledby="modalUsuariosConfirmacaoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalUsuariosConfirmacaoLabel">Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja excluir o usuário <strong id="usuariosNomeExcluir"></strong>?</p>
+                    <p class="text-danger"><small>Esta ação não pode ser desfeita.</small></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="usuariosBtnConfirmarExclusao">Excluir Usuário</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div class="loading-overlay d-none" id="loadingOverlay">
         <div class="spinner-border text-primary" role="status">
@@ -563,6 +748,464 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
         const SEGMENTO = <?php echo json_encode(strtolower((string)$segmento)); ?>;
         const ID_USUARIO = <?php echo json_encode($id_usuario); ?>;
         const PERFIL_VAREJO = <?php echo json_encode($isVarejo); ?>;
+        const PERFIL_ADMIN_EMPRESA = <?php echo json_encode($isAdminEmpresa); ?>;
+        const API_TOKEN = <?php echo json_encode($token); ?>;
+        const ID_EMPRESA_SESSAO = <?php echo json_encode($id_empresa); ?>;
+        const EMPRESA_NOME_SESSAO = <?php echo json_encode($empresa['nome_empresa'] ?? ''); ?>;
+    </script>
+    
+    <script>
+        const USUARIOS_API = {
+            getUsuariosUrl: () => `${API_CONFIG.BASE_URL}/api/usuarios`,
+            getUsuarioUrl: (id) => `${API_CONFIG.BASE_URL}/api/usuarios/${id}`,
+            getUsuariosEmpresaUrl: (idEmpresa) => `${API_CONFIG.BASE_URL}/api/usuarios/empresa/${idEmpresa}`,
+        };
+
+        let usuariosEmpresa = [];
+        let usuariosEmpresaAtualId = null;
+        let usuariosModal = null;
+        let usuariosModalConfirmacao = null;
+        const usuariosPerfisPadrao = [
+            { value: 'super_admin', label: 'Super Admin' },
+            { value: 'admin_empresa', label: 'Admin Empresa' },
+            { value: 'usuario', label: 'Usuário' },
+            { value: 'manager', label: 'Gestor' }
+        ];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            usuariosModal = new bootstrap.Modal(document.getElementById('modalUsuarioEmpresa'));
+            usuariosModalConfirmacao = new bootstrap.Modal(document.getElementById('modalUsuariosConfirmacao'));
+            usuariosAtualizarPerfisDisponiveis();
+
+            const selectEmpresa = document.getElementById('usuariosEmpresaSelect');
+            if (selectEmpresa) {
+                selectEmpresa.addEventListener('change', () => {
+                    usuariosEmpresaAtualId = selectEmpresa.value ? parseInt(selectEmpresa.value) : null;
+                    usuariosCarregarUsuarios();
+                });
+            }
+
+            const searchInput = document.getElementById('usuariosSearchInput');
+            const filterPerfil = document.getElementById('usuariosFilterPerfil');
+            const filterStatus = document.getElementById('usuariosFilterStatus');
+            if (searchInput) searchInput.addEventListener('input', usuariosFiltrarUsuarios);
+            if (filterPerfil) filterPerfil.addEventListener('change', usuariosFiltrarUsuarios);
+            if (filterStatus) filterStatus.addEventListener('change', usuariosFiltrarUsuarios);
+
+            if (ID_EMPRESA_SESSAO && PERFIL_ADMIN_EMPRESA) {
+                usuariosEmpresaAtualId = parseInt(ID_EMPRESA_SESSAO);
+                usuariosAtualizarEmpresas([]);
+            }
+        });
+
+        function usuariosAtualizarEmpresas(listaEmpresas) {
+            const selectEmpresa = document.getElementById('usuariosEmpresaSelect');
+            const wrapper = document.getElementById('usuariosEmpresaSelectWrapper');
+            if (!selectEmpresa) return;
+
+            const empresasLista = Array.isArray(listaEmpresas) ? listaEmpresas : [];
+            selectEmpresa.innerHTML = '';
+
+            if (empresasLista.length > 0) {
+                empresasLista.forEach((empresa) => {
+                    selectEmpresa.innerHTML += `<option value="${empresa.id_empresa}">${empresa.nome_empresa}</option>`;
+                });
+            } else if (ID_EMPRESA_SESSAO) {
+                const label = EMPRESA_NOME_SESSAO ? EMPRESA_NOME_SESSAO : `Empresa ${ID_EMPRESA_SESSAO}`;
+                selectEmpresa.innerHTML = `<option value="${ID_EMPRESA_SESSAO}">${label}</option>`;
+            } else {
+                selectEmpresa.innerHTML = '<option value="">Selecione uma empresa</option>';
+            }
+
+            if (PERFIL_ADMIN_EMPRESA && ID_EMPRESA_SESSAO) {
+                selectEmpresa.value = ID_EMPRESA_SESSAO;
+                selectEmpresa.disabled = true;
+                if (wrapper) wrapper.style.display = 'none';
+                usuariosEmpresaAtualId = parseInt(ID_EMPRESA_SESSAO);
+                usuariosCarregarUsuarios();
+                return;
+            }
+
+            if (selectEmpresa.value) {
+                usuariosEmpresaAtualId = parseInt(selectEmpresa.value);
+                usuariosCarregarUsuarios();
+            }
+        }
+
+        async function usuariosCarregarUsuarios() {
+            if (!usuariosEmpresaAtualId) {
+                document.getElementById('usuariosTbody').innerHTML = '<tr><td colspan="9" class="text-center text-muted">Selecione uma empresa.</td></tr>';
+                document.getElementById('usuariosTotal').textContent = '0 usuário(s) encontrado(s)';
+                return;
+            }
+
+            mostrarLoading(true);
+            try {
+                const response = await fetch(USUARIOS_API.getUsuariosEmpresaUrl(usuariosEmpresaAtualId), {
+                    method: 'GET',
+                    headers: API_CONFIG.getHeaders(API_TOKEN)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                usuariosEmpresa = data.data || data;
+                usuariosAtualizarPerfisDisponiveis();
+                usuariosExibirUsuarios(usuariosEmpresa);
+                usuariosAtualizarTotal(usuariosEmpresa.length);
+            } catch (error) {
+                console.error('Erro ao carregar usuários:', error);
+                mostrarNotificacao('Erro ao carregar usuários: ' + error.message, 'error');
+                document.getElementById('usuariosTbody').innerHTML = '<tr><td colspan="9" class="text-center text-muted">Erro ao carregar dados</td></tr>';
+                usuariosAtualizarTotal(0);
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        function usuariosAtualizarPerfisDisponiveis() {
+            const selectPerfil = document.getElementById('usuariosPerfil');
+            const filterPerfil = document.getElementById('usuariosFilterPerfil');
+            if (!selectPerfil || !filterPerfil) return;
+
+            const perfisEncontrados = new Set(
+                usuariosEmpresa
+                    .map((u) => u.perfil)
+                    .filter((p) => p && String(p).trim() !== '')
+                    .map((p) => String(p))
+            );
+
+            const lista = [...usuariosPerfisPadrao];
+            perfisEncontrados.forEach((value) => {
+                if (!lista.some((item) => item.value === value)) {
+                    lista.push({ value, label: usuariosFormatarPerfil(value) });
+                }
+            });
+
+            selectPerfil.innerHTML = '<option value="">Selecione o perfil</option>';
+            filterPerfil.innerHTML = '<option value="">Todos os perfis</option>';
+
+            lista.forEach((perfil) => {
+                selectPerfil.innerHTML += `<option value="${perfil.value}">${perfil.label}</option>`;
+                filterPerfil.innerHTML += `<option value="${perfil.value}">${perfil.label}</option>`;
+            });
+        }
+
+        function usuariosExibirUsuarios(lista) {
+            const tbody = document.getElementById('usuariosTbody');
+            if (!Array.isArray(lista) || lista.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Nenhum usuário encontrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = lista.map((usuario) => {
+                const usuarioId = usuario.id_usuario || usuario.id;
+                const ativo = !!usuario.ativo;
+                const botaoAtivo = ativo
+                    ? '<button class="btn btn-action btn-outline-warning" onclick="usuariosAlternarAtivo(' + usuarioId + ', 1)" title="Inativar"><i class="bi bi-person-x"></i></button>'
+                    : '<button class="btn btn-action btn-outline-success" onclick="usuariosAlternarAtivo(' + usuarioId + ', 0)" title="Ativar"><i class="bi bi-person-check"></i></button>';
+
+                return `
+                <tr>
+                    <td>${usuarioId}</td>
+                    <td><div class="fw-semibold">${usuario.nome || '-'}</div></td>
+                    <td>${usuario.email || '-'}</td>
+                    <td><span class="perfil-badge">${usuariosFormatarPerfil(usuario.perfil)}</span></td>
+                    <td><span class="status-badge ${ativo ? 'status-ativo' : 'status-inativo'}">${ativo ? 'Ativo' : 'Inativo'}</span></td>
+                    <td><i class="bi ${usuario.aceitou_termos ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i></td>
+                    <td><i class="bi ${usuario.newsletter ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i></td>
+                    <td>${usuariosFormatarData(usuario.created_at)}</td>
+                    <td>
+                        <div class="d-flex">
+                            <button class="btn btn-action btn-outline-primary" onclick="usuariosEditarUsuario(${usuarioId})" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            ${botaoAtivo}
+                            <button class="btn btn-action btn-outline-danger" onclick="usuariosConfirmarExclusao(${usuarioId}, '${(usuario.nome || '').replace(/'/g, "\\'")}')" title="Excluir">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        function usuariosAbrirModalUsuario() {
+            if (!usuariosEmpresaAtualId) {
+                mostrarNotificacao('Selecione uma empresa para cadastrar usuários.', 'error');
+                return;
+            }
+            document.getElementById('modalUsuarioEmpresaLabel').textContent = 'Novo Usuário';
+            document.getElementById('usuariosForm').reset();
+            document.getElementById('usuariosUsuarioId').value = '';
+            document.getElementById('usuariosEmpresaId').value = usuariosEmpresaAtualId;
+            document.getElementById('usuariosSenha').required = true;
+            document.getElementById('usuariosLabelSenha').innerHTML = 'Senha *';
+            document.getElementById('usuariosTextoAjudaSenha').style.display = 'block';
+            document.getElementById('usuariosForm').classList.remove('was-validated');
+            usuariosModal.show();
+        }
+
+        async function usuariosEditarUsuario(id) {
+            if (!id) return;
+            mostrarLoading(true);
+            try {
+                const response = await fetch(USUARIOS_API.getUsuarioUrl(id), {
+                    method: 'GET',
+                    headers: API_CONFIG.getHeaders(API_TOKEN)
+                });
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                const usuario = data.data || data;
+                const usuarioId = usuario.id_usuario || usuario.id;
+
+                document.getElementById('modalUsuarioEmpresaLabel').textContent = 'Editar Usuário';
+                document.getElementById('usuariosUsuarioId').value = usuarioId;
+                document.getElementById('usuariosEmpresaId').value = usuario.id_empresa || usuariosEmpresaAtualId || '';
+                document.getElementById('usuariosNome').value = usuario.nome || '';
+                document.getElementById('usuariosEmail').value = usuario.email || '';
+                document.getElementById('usuariosPerfil').value = usuario.perfil || '';
+                if (usuario.perfil && !Array.from(document.getElementById('usuariosPerfil').options).some(o => o.value === usuario.perfil)) {
+                    const option = document.createElement('option');
+                    option.value = usuario.perfil;
+                    option.textContent = usuariosFormatarPerfil(usuario.perfil);
+                    document.getElementById('usuariosPerfil').appendChild(option);
+                    document.getElementById('usuariosFilterPerfil').appendChild(option.cloneNode(true));
+                }
+                document.getElementById('usuariosAtivo').checked = !!usuario.ativo;
+                document.getElementById('usuariosAceitouTermos').checked = !!usuario.aceitou_termos;
+                document.getElementById('usuariosNewsletter').checked = !!usuario.newsletter;
+
+                document.getElementById('usuariosSenha').required = false;
+                document.getElementById('usuariosLabelSenha').innerHTML = 'Senha <small class="text-muted">(opcional)</small>';
+                document.getElementById('usuariosTextoAjudaSenha').style.display = 'none';
+                document.getElementById('usuariosSenha').value = '';
+                document.getElementById('usuariosForm').classList.remove('was-validated');
+                usuariosModal.show();
+            } catch (error) {
+                console.error('Erro ao carregar usuário:', error);
+                mostrarNotificacao('Erro ao carregar dados do usuário: ' + error.message, 'error');
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        async function usuariosSalvarUsuario() {
+            const form = document.getElementById('usuariosForm');
+            const nome = document.getElementById('usuariosNome').value.trim();
+            const email = document.getElementById('usuariosEmail').value.trim();
+            const perfil = document.getElementById('usuariosPerfil').value;
+            const senha = document.getElementById('usuariosSenha').value;
+            const usuarioId = document.getElementById('usuariosUsuarioId').value;
+            const empresaId = document.getElementById('usuariosEmpresaId').value || usuariosEmpresaAtualId;
+
+            if (!nome || !email || !perfil) {
+                form.classList.add('was-validated');
+                mostrarNotificacao('Por favor, preencha todos os campos obrigatórios.', 'error');
+                return;
+            }
+
+            if (!usuarioId) {
+                if (!senha) {
+                    mostrarNotificacao('Para novo usuário, a senha é obrigatória.', 'error');
+                    return;
+                }
+                if (senha.length < 6) {
+                    mostrarNotificacao('A senha deve ter pelo menos 6 caracteres.', 'error');
+                    return;
+                }
+            }
+
+            if (usuarioId && senha && senha.length < 6) {
+                mostrarNotificacao('A senha deve ter pelo menos 6 caracteres.', 'error');
+                return;
+            }
+
+            const dadosUsuario = {
+                id_empresa: parseInt(empresaId),
+                nome: nome,
+                email: email,
+                perfil: perfil,
+                ativo: document.getElementById('usuariosAtivo').checked ? 1 : 0,
+                aceitou_termos: document.getElementById('usuariosAceitouTermos').checked ? 1 : 0,
+                newsletter: document.getElementById('usuariosNewsletter').checked ? 1 : 0
+            };
+
+            if ((!usuarioId || senha) && senha.length >= 6) {
+                dadosUsuario.senha = senha;
+            }
+
+            mostrarLoading(true);
+            try {
+                let response;
+                if (usuarioId) {
+                    response = await fetch(USUARIOS_API.getUsuarioUrl(usuarioId), {
+                        method: 'PUT',
+                        headers: API_CONFIG.getJsonHeaders(API_TOKEN),
+                        body: JSON.stringify(dadosUsuario)
+                    });
+                } else {
+                    response = await fetch(USUARIOS_API.getUsuariosUrl(), {
+                        method: 'POST',
+                        headers: API_CONFIG.getJsonHeaders(API_TOKEN),
+                        body: JSON.stringify(dadosUsuario)
+                    });
+                }
+
+                if (!response.ok) {
+                    let errorMessage = `Erro ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.errors) {
+                            const allErrors = [];
+                            for (const [field, errors] of Object.entries(errorData.errors)) {
+                                allErrors.push(`${field}: ${errors.join(', ')}`);
+                            }
+                            errorMessage = allErrors.join('; ');
+                        } else if (errorData.message) {
+                            errorMessage = errorData.message;
+                        }
+                    } catch (parseError) {}
+                    if (errorMessage.includes('email') && errorMessage.includes('already been taken')) {
+                        errorMessage = 'Este email já está em uso. Por favor, utilize outro email.';
+                    }
+                    if (errorMessage.includes('Data truncated') || errorMessage.includes('perfil')) {
+                        errorMessage = 'Erro no campo perfil. Verifique se o valor é válido.';
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                usuariosModal.hide();
+                form.classList.remove('was-validated');
+                mostrarNotificacao(`Usuário "${nome}" ${usuarioId ? 'atualizado' : 'criado'} com sucesso!`, 'success');
+                usuariosCarregarUsuarios();
+            } catch (error) {
+                console.error('Erro ao salvar usuário:', error);
+                mostrarNotificacao('Erro ao salvar usuário: ' + error.message, 'error');
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        function usuariosConfirmarExclusao(id, nome) {
+            document.getElementById('usuariosNomeExcluir').textContent = nome || '';
+            const btnConfirmar = document.getElementById('usuariosBtnConfirmarExclusao');
+            btnConfirmar.onclick = function() {
+                usuariosExcluirUsuario(id);
+            };
+            usuariosModalConfirmacao.show();
+        }
+
+        async function usuariosExcluirUsuario(id) {
+            if (!id) return;
+            mostrarLoading(true);
+            try {
+                const response = await fetch(USUARIOS_API.getUsuarioUrl(id), {
+                    method: 'DELETE',
+                    headers: API_CONFIG.getHeaders(API_TOKEN)
+                });
+                if (!response.ok) {
+                    let errorMessage = `Erro ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.message) errorMessage = errorData.message;
+                    } catch (parseError) {}
+                    throw new Error(errorMessage);
+                }
+                usuariosModalConfirmacao.hide();
+                mostrarNotificacao('Usuário excluído com sucesso!', 'success');
+                usuariosCarregarUsuarios();
+            } catch (error) {
+                console.error('Erro ao excluir usuário:', error);
+                mostrarNotificacao('Erro ao excluir usuário: ' + error.message, 'error');
+                usuariosModalConfirmacao.hide();
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        async function usuariosAlternarAtivo(id, ativoAtual) {
+            const usuario = usuariosEmpresa.find(u => String(u.id_usuario || u.id) === String(id));
+            if (!usuario) return;
+            const payload = {
+                id_empresa: parseInt(usuario.id_empresa || usuariosEmpresaAtualId),
+                nome: usuario.nome,
+                email: usuario.email,
+                perfil: usuario.perfil,
+                ativo: ativoAtual ? 0 : 1,
+                aceitou_termos: usuario.aceitou_termos ? 1 : 0,
+                newsletter: usuario.newsletter ? 1 : 0
+            };
+            mostrarLoading(true);
+            try {
+                const response = await fetch(USUARIOS_API.getUsuarioUrl(id), {
+                    method: 'PUT',
+                    headers: API_CONFIG.getJsonHeaders(API_TOKEN),
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+                mostrarNotificacao('Status do usuário atualizado.', 'success');
+                usuariosCarregarUsuarios();
+            } catch (error) {
+                mostrarNotificacao('Erro ao atualizar usuário: ' + error.message, 'error');
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+
+        function usuariosFiltrarUsuarios() {
+            const termoBusca = document.getElementById('usuariosSearchInput').value.toLowerCase();
+            const perfilFiltro = document.getElementById('usuariosFilterPerfil').value;
+            const statusFiltro = document.getElementById('usuariosFilterStatus').value;
+
+            const filtrados = usuariosEmpresa.filter((usuario) => {
+                const matchBusca = !termoBusca ||
+                    (usuario.nome || '').toLowerCase().includes(termoBusca) ||
+                    (usuario.email || '').toLowerCase().includes(termoBusca);
+                const matchPerfil = !perfilFiltro || usuario.perfil === perfilFiltro;
+                const matchStatus = !statusFiltro ||
+                    (statusFiltro === 'ativo' && usuario.ativo) ||
+                    (statusFiltro === 'inativo' && !usuario.ativo);
+                return matchBusca && matchPerfil && matchStatus;
+            });
+
+            usuariosExibirUsuarios(filtrados);
+            usuariosAtualizarTotal(filtrados.length);
+        }
+
+        function usuariosFormatarPerfil(perfil) {
+            const perfis = {
+                'admin_empresa': 'Admin Empresa',
+                'super_admin': 'Super Admin',
+                'usuario': 'Usuário',
+                'manager': 'Gestor',
+            };
+            return perfis[perfil] || perfil || '-';
+        }
+
+        function usuariosFormatarData(data) {
+            if (!data) return '';
+            try {
+                const date = new Date(data);
+                return date.toLocaleDateString('pt-BR');
+            } catch (e) {
+                return data;
+            }
+        }
+
+        function usuariosAtualizarTotal(total) {
+            const el = document.getElementById('usuariosTotal');
+            if (el) {
+                el.textContent = `${total} usuário(s) encontrado(s)`;
+            }
+        }
     </script>
     
     <script>
@@ -714,6 +1357,9 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
 
                 exibirEmpresas(empresas);
                 atualizarTotalEmpresas(empresas.length);
+                if (typeof usuariosAtualizarEmpresas === 'function') {
+                    usuariosAtualizarEmpresas(empresas);
+                }
                 
             } catch (error) {
                 console.error('Erro ao carregar empresas:', error);
@@ -756,6 +1402,11 @@ $inicialUsuario = strtoupper(substr($nomeUsuario, 0, 1));
                                 <a href="?view=gestao_usuarios&id_empresa=${empresa.id_empresa}" class="btn btn-action btn-outline-primary" title="Gestao de Usuarios">
                                     <i class="bi bi-people"></i>
                                 </a>   
+                                ${PERFIL_ADMIN_EMPRESA ? `
+                                    <a href="?view=admin-gestao-permissoes&id_empresa=${empresa.id_empresa}" class="btn btn-action btn-outline-info" title="Gestão de Permissões">
+                                        <i class="bi bi-shield-lock"></i>
+                                    </a>
+                                ` : ''}
                                 <a href="?view=admin-filiais_empresa&id_empresas=${empresa.id_empresa}" class="btn btn-action btn-outline-primary" title="Gestao de Filiais">
                                     <i class="bi bi-building"></i>
                                 </a>
