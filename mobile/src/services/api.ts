@@ -1,4 +1,4 @@
-﻿import { API_BASE_URL } from '../config';
+﻿import { API_BASE_URL, TASKS_API_BASE_URL } from '../config';
 
 export type LoginResponse = {
   token: string;
@@ -101,7 +101,59 @@ export type Contagem = {
   data_contagem?: string;
 };
 
+export type TarefaContagem = {
+  id_tarefa: number;
+  id_capa_inventario: number;
+  id_usuario: number;
+  id_supervisor: number;
+  tipo_tarefa: string;
+  status: string;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  observacoes?: string | null;
+  total_produtos?: number;
+  produtos_contados?: number;
+};
+
 const buildUrl = (path: string) => `${API_BASE_URL}${path}`;
+const buildTasksUrl = (path: string) => `${TASKS_API_BASE_URL}${path}`;
+const TASKS_PRIMARY_BASE_URL = TASKS_API_BASE_URL || API_BASE_URL;
+const TASKS_FALLBACK_BASE_URL = TASKS_PRIMARY_BASE_URL.includes('saas-multiempresas-new')
+  ? TASKS_PRIMARY_BASE_URL.replace('saas-multiempresas-new', 'saas-multiempresas-api')
+  : API_BASE_URL;
+
+const isTasksRouteNotFound = (data: unknown) => {
+  if (!data || typeof data !== 'object') return false;
+  const message = (data as { message?: unknown }).message;
+  return typeof message === 'string' && message.includes('api/inventario/tarefas');
+};
+
+const fetchTarefasApi = async (path: string, options: RequestInit) => {
+  const primaryUrl = buildTasksUrl(path);
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    const method = options.method || 'GET';
+    console.log(`[TAREFAS] ${method} ${primaryUrl}`);
+  }
+  const primaryResponse = await fetch(primaryUrl, options);
+  const primaryData = await normalizeJson(primaryResponse);
+
+  if (
+    primaryResponse.status === 404 &&
+    TASKS_FALLBACK_BASE_URL !== TASKS_PRIMARY_BASE_URL &&
+    isTasksRouteNotFound(primaryData)
+  ) {
+    const retryUrl = `${TASKS_FALLBACK_BASE_URL}${path}`;
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      const method = options.method || 'GET';
+      console.log(`[TAREFAS] RETRY ${method} ${retryUrl}`);
+    }
+    const retryResponse = await fetch(retryUrl, options);
+    const retryData = await normalizeJson(retryResponse);
+    return { response: retryResponse, data: retryData };
+  }
+
+  return { response: primaryResponse, data: primaryData };
+};
 
 const normalizeJson = async (response: Response) => {
   const text = await response.text();
@@ -125,6 +177,22 @@ const getHeaders = (token: string, empresaId?: number, json = false) => {
     headers['X-ID-EMPRESA'] = empresaId.toString();
   }
   return headers;
+};
+
+const extractErrorMessage = (data: unknown, fallback: string) => {
+  if (!data || typeof data !== 'object') return fallback;
+  const maybeMessage = (data as { message?: unknown }).message;
+  if (typeof maybeMessage === 'string' && maybeMessage.trim()) return maybeMessage;
+  const maybeError = (data as { error?: unknown }).error;
+  if (typeof maybeError === 'string' && maybeError.trim()) return maybeError;
+  const maybeErrors = (data as { errors?: Record<string, string[] | string> }).errors;
+  if (maybeErrors && typeof maybeErrors === 'object') {
+    const messages = Object.values(maybeErrors)
+      .flatMap((value) => (Array.isArray(value) ? value : [value]))
+      .filter((value): value is string => typeof value === 'string' && value.trim());
+    if (messages.length) return messages.join(' ');
+  }
+  return fallback;
 };
 
 function normalizeLoginResponse(data: LoginRaw): LoginResponse {
@@ -260,3 +328,159 @@ export async function updateContagem(
   }
   return data as Contagem;
 }
+
+const extractList = <T>(data: unknown): T[] => {
+  if (Array.isArray(data)) return data as T[];
+  if (!data || typeof data !== 'object') return [];
+  const container = data as { data?: unknown; items?: unknown };
+  if (Array.isArray(container.data)) return container.data as T[];
+  if (Array.isArray(container.items)) return container.items as T[];
+  const nested = (container.data as { data?: unknown } | undefined)?.data;
+  if (Array.isArray(nested)) return nested as T[];
+  return [];
+};
+
+export async function fetchTarefasPorInventario(
+  idCapa: number,
+  token: string,
+  empresaId: number
+): Promise<TarefaContagem[]> {
+  const { response, data } = await fetchTarefasApi(
+    `/api/inventario/tarefas/inventario/${idCapa}`,
+    {
+      method: 'GET',
+      headers: getHeaders(token, empresaId),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(data, `Erro ao carregar tarefas (${response.status}).`));
+  }
+  return extractList<TarefaContagem>(data);
+}
+
+export async function fetchTarefasContagem(
+  query: {
+    status?: string;
+    id_capa_inventario?: number;
+    id_usuario?: number;
+    data_inicio?: string;
+    data_fim?: string;
+    per_page?: number;
+  },
+  token: string,
+  empresaId: number
+): Promise<TarefaContagem[]> {
+  const queryString = Object.entries(query)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&');
+  const path = queryString ? `/api/inventario/tarefas?${queryString}` : '/api/inventario/tarefas';
+  const { response, data } = await fetchTarefasApi(path, {
+    method: 'GET',
+    headers: getHeaders(token, empresaId),
+  });
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(data, `Erro ao carregar tarefas (${response.status}).`));
+  }
+  return extractList<TarefaContagem>(data);
+}
+
+export async function criarTarefaContagem(
+  payload: {
+    id_capa_inventario: number;
+    id_usuario: number;
+    id_supervisor: number;
+    tipo_tarefa: string;
+    observacoes?: string | null;
+    produtos?: number[];
+  },
+  query: {
+    status?: string;
+    id_capa_inventario?: number;
+    id_usuario?: number;
+    data_inicio?: string;
+    data_fim?: string;
+    per_page?: number;
+  } | undefined,
+  token: string,
+  empresaId: number
+): Promise<TarefaContagem> {
+  const queryString = query
+    ? Object.entries(query)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+        .join('&')
+    : '';
+  const path = queryString ? `/api/inventario/tarefas?${queryString}` : '/api/inventario/tarefas';
+  const { response, data } = await fetchTarefasApi(path, {
+    method: 'POST',
+    headers: getHeaders(token, empresaId, true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(data, `Erro ao criar tarefa (${response.status}).`));
+  }
+  return (data as { data?: TarefaContagem }).data || (data as TarefaContagem);
+}
+
+export async function iniciarTarefaContagem(
+  idTarefa: number,
+  token: string,
+  empresaId: number,
+  observacoes?: string
+): Promise<TarefaContagem> {
+  const { response, data } = await fetchTarefasApi(
+    `/api/inventario/tarefas/${idTarefa}/iniciar`,
+    {
+      method: 'PUT',
+      headers: getHeaders(token, empresaId, true),
+      body: JSON.stringify({ observacoes }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(data, `Erro ao iniciar tarefa (${response.status}).`));
+  }
+  return (data as { data?: TarefaContagem }).data || (data as TarefaContagem);
+}
+
+export async function retomarTarefaContagem(
+  idTarefa: number,
+  token: string,
+  empresaId: number,
+  observacoes?: string
+): Promise<TarefaContagem> {
+  const { response, data } = await fetchTarefasApi(
+    `/api/inventario/tarefas/${idTarefa}/retomar`,
+    {
+      method: 'PUT',
+      headers: getHeaders(token, empresaId, true),
+      body: JSON.stringify({ observacoes }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(data, `Erro ao retomar tarefa (${response.status}).`));
+  }
+  return (data as { data?: TarefaContagem }).data || (data as TarefaContagem);
+}
+
+export async function concluirTarefaContagem(
+  idTarefa: number,
+  token: string,
+  empresaId: number,
+  observacoes?: string,
+  forcarConclusao = false
+): Promise<TarefaContagem> {
+  const { response, data } = await fetchTarefasApi(
+    `/api/inventario/tarefas/${idTarefa}/concluir`,
+    {
+      method: 'PUT',
+      headers: getHeaders(token, empresaId, true),
+      body: JSON.stringify({ observacoes, forcar_conclusao: forcarConclusao }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(data, `Erro ao concluir tarefa (${response.status}).`));
+  }
+  return (data as { data?: TarefaContagem }).data || (data as TarefaContagem);
+}
+

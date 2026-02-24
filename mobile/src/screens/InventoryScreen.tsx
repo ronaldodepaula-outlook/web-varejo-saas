@@ -8,14 +8,11 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../context/AuthContext';
-import {
-  fetchCapasInventarioEmpresa,
-  fetchCapaInventario,
-  InventarioCapa,
-} from '../services/api';
+import { fetchCapasInventarioEmpresa, InventarioCapa } from '../services/api';
 import { theme } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Inventario'>;
@@ -26,7 +23,6 @@ const InventoryScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [loadingCapas, setLoadingCapas] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [capa, setCapa] = useState<InventarioCapa | null>(null);
   const [capasEmpresa, setCapasEmpresa] = useState<InventarioCapa[]>([]);
 
   useEffect(() => {
@@ -60,17 +56,15 @@ const InventoryScreen: React.FC<Props> = ({ navigation }) => {
     }
     setLoading(true);
     setError(null);
-    setCapa(null);
     try {
       const id = Number(numero);
       if (!auth.token || !auth.empresaId) {
         throw new Error('Sessão inválida.');
       }
       if (idsPermitidos.size > 0 && !idsPermitidos.has(id)) {
-        throw new Error('Inventário inválido.');
+        throw new Error('Inventário não pertence à sua empresa.');
       }
-      const data = await fetchCapaInventario(id, auth.token, auth.empresaId);
-      setCapa(data);
+      navigation.navigate('InventarioResumo', { idInventario: id });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao carregar inventário.';
       setError(message);
@@ -79,49 +73,47 @@ const InventoryScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleStart = () => {
-    if (!capa) return;
-    navigation.navigate('Contagem', { idInventario: capa.id_capa_inventario });
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Selecionar Inventário</Text>
+        <View style={styles.titleRow}>
+          <MaterialCommunityIcons
+            name="clipboard-list-outline"
+            size={22}
+            color={theme.colors.primary}
+          />
+          <Text style={styles.title}>Selecionar Inventário</Text>
+        </View>
         <Text style={styles.subtitle}>Informe o número do inventário para iniciar a contagem.</Text>
         {loadingCapas && <Text style={styles.info}>Carregando inventários da empresa...</Text>}
 
         <View style={styles.field}>
           <Text style={styles.label}>Número do inventário</Text>
-          <TextInput
-            value={numero}
-            onChangeText={setNumero}
-            keyboardType="numeric"
-            placeholder="Ex: 123"
-            style={styles.input}
-          />
+          <View style={styles.inputRow}>
+            <MaterialCommunityIcons name="barcode-scan" size={18} color={theme.colors.textMuted} />
+            <TextInput
+              value={numero}
+              onChangeText={setNumero}
+              keyboardType="numeric"
+              placeholder="Ex: 123"
+              style={styles.input}
+            />
+          </View>
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
 
         <TouchableOpacity style={styles.button} onPress={handleLoad} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Carregar</Text>}
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <View style={styles.buttonContent}>
+              <MaterialCommunityIcons name="play-circle-outline" size={18} color="#fff" />
+              <Text style={styles.buttonText}>Continuar</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
-
-      {capa && (
-        <View style={styles.detailsCard}>
-          <Text style={styles.detailsTitle}>Inventário #{capa.id_capa_inventario}</Text>
-          <Text style={styles.detailsText}>Descrição: {capa.descricao}</Text>
-          <Text style={styles.detailsText}>Status: {capa.status}</Text>
-          <Text style={styles.detailsText}>Filial: {capa.filial?.nome_filial || 'N/A'}</Text>
-          <Text style={styles.detailsText}>Responsável: {capa.usuario?.nome || 'N/A'}</Text>
-
-          <TouchableOpacity style={[styles.button, styles.startButton]} onPress={handleStart}>
-            <Text style={styles.buttonText}>Iniciar Contagem</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </ScrollView>
   );
 };
@@ -147,6 +139,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.text,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   subtitle: {
     color: theme.colors.textMuted,
     marginTop: 6,
@@ -164,14 +161,21 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginBottom: 6,
   },
-  input: {
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: theme.colors.bg,
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: theme.colors.text,
   },
   button: {
     backgroundColor: theme.colors.primary,
@@ -179,8 +183,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  startButton: {
-    marginTop: 16,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#fff',
@@ -189,23 +195,6 @@ const styles = StyleSheet.create({
   error: {
     color: theme.colors.danger,
     marginBottom: 8,
-  },
-  detailsCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 18,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  detailsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: theme.colors.text,
-  },
-  detailsText: {
-    color: theme.colors.text,
-    marginBottom: 4,
   },
 });
 

@@ -4,13 +4,15 @@ import { TouchableOpacity, Text } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import InventoryScreen from '../screens/InventoryScreen';
+import InventorySummaryScreen from '../screens/InventorySummaryScreen';
 import CountScreen from '../screens/CountScreen';
 import { theme } from '../styles/theme';
 
 export type RootStackParamList = {
   Login: undefined;
   Inventario: undefined;
-  Contagem: { idInventario: number };
+  InventarioResumo: { idInventario: number };
+  Contagem: { idInventario: number; idTarefa?: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -44,6 +46,14 @@ const AppNavigator: React.FC = () => {
             component={InventoryScreen}
             options={{
               title: 'Inventário',
+              headerRight: () => <LogoutButton />,
+            }}
+          />
+          <Stack.Screen
+            name="InventarioResumo"
+            component={InventorySummaryScreen}
+            options={{
+              title: 'Resumo do Inventário',
               headerRight: () => <LogoutButton />,
             }}
           />
